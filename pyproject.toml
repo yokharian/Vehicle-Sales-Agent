@@ -1,0 +1,97 @@
+[project]
+name = "vehicle-sales-agent"
+version = "0.1.0"
+description = ""
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "langchain",
+    "langchain-classic",
+    "langchain-community",
+    "langchain-core",
+    "langchain-huggingface",
+    "langchain-openai",
+    "langchain-text-splitters",
+    "langgraph",
+    "numpy",
+    "openai",
+    "pandas",
+    "psycopg2-binary",
+    "pydantic",
+    "python-dotenv",
+    "rapidfuzz",
+    "rank-bm25",
+    "sentence-transformers",
+    "sqlalchemy",
+    "sqlmodel",
+    "tiktoken",
+    "twilio",
+    "unidecode",
+    "uvicorn[standard]",
+    "pgvector>=0.5.0",
+    "markdownify>=1.2.3",
+    "beautifulsoup4>=4.15.0",
+    "certifi>=2026.7.22",
+]
+
+[dependency-groups]
+dev = [
+    "langgraph-cli[inmem]",
+    "pytest",
+    "testcontainers>=4.15.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = [
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".tox",
+    ".venv",
+    "venv",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "__pycache__",
+]
+
+[tool.ruff.lint]
+select = [
+    "E", # pycodestyle errors
+    "W", # pycodestyle warnings
+    "F", # pyflakes
+    "I", # isort
+    "B", # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+    "ARG", # flake8-unused-arguments
+    "SIM", # flake8-simplify
+    "TCH", # flake8-type-checking
+    "PTH", # flake8-use-pathlib
+    "ERA", # eradicate
+    "PD", # pandas-vet
+    "PL", # Pylint
+    "TRY", # tryceratops
+    "RUF", # Ruff-specific rules
+]
+ignore = [
+    "E501", # line too long (handled by ruff formatter)
+    "B008", # do not perform function calls in argument defaults
+    "PLR0913", # too many arguments
+    "PLR2004", # magic value used in comparison
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src", "tests"]
+lines-after-imports = 2
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
