@@ -129,7 +129,7 @@ Example:
   "financed_amount": 350000,
   "annual_interest_rate": 0.10,
   "term_years": 5,
-  "monthly_payment": 7435.65,
+  "monthly_payment": 7436.47,
   "number_of_payments": 60
 }
 ```
