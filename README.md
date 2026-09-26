@@ -171,6 +171,7 @@ vehicle-sales-agent/
 ## 📚 Documentation
 
 - [Docker Setup Guide](docs/DOCKER.md) - Deployment and testing with Docker
+- [WhatsApp Setup Guide](docs/WHATSAPP.md) - Twilio account, webhook, and server configuration
 - [Product Requirement Documents](docs/Product%20Requirement%20Documents/) - `vehicle_catalog.md`, `knowledge_search.md`, `financing_calculator.md`
 - [Architecture Decision Records](docs/Architecture%20Decision%20Records/) - ADR-001 through ADR-006 (technology stack, structured tool calling, PostgreSQL datastore, grounded responses, evaluation, hybrid retrieval)
 - [Challenge description](docs/Challenge.en.md) / [Descripción del reto](docs/Challenge.es.md)
