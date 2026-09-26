@@ -1,19 +1,26 @@
 """Application configuration via pydantic-settings.
 
-Every tunable of the document search stack (embedding provider selection,
-retrieval parameters) is declared here so behavior is configuration-driven
-and validated at read time instead of scattered across os.getenv calls.
+Provider and model selection is configuration-driven: OpenAI, Gemini, and
+OpenRouter (OpenAI-compatible) embedding models are declared here alongside
+the agent's default chat model, so swapping providers never touches tool code.
 """
 
 from __future__ import annotations
+
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-DEFAULT_EMBEDDING_MODELS = {
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
+EmbeddingProvider = Literal["openai", "gemini", "openrouter"]
+
+DEFAULT_EMBEDDING_MODELS: dict[str, str] = {
     "openai": "text-embedding-3-small",
     "gemini": "models/text-embedding-004",
+    "openrouter": "openai/text-embedding-3-small",
 }
 
 
@@ -27,12 +34,18 @@ class DocumentSearchSettings(BaseSettings):
         extra="ignore",
     )
 
-    embedding_provider: str = Field(
-        default="openai", description="Embedding provider: 'openai' or 'gemini'"
+    embedding_provider: EmbeddingProvider = Field(
+        default="openai",
+        description="Embedding provider: 'openai', 'gemini', or 'openrouter'",
     )
     embedding_model: str | None = Field(
         default=None,
         description="Embedding model override; None uses the provider default",
+    )
+    openrouter_api_key: str | None = Field(
+        default=None,
+        validation_alias="OPENROUTER_API_KEY",
+        description="API key used when embedding_provider is 'openrouter'",
     )
     top_k: int = Field(default=6, ge=1, description="Final number of retrieved passages")
     bm25_candidates: int = Field(default=6, ge=1, description="BM25 candidate count")
@@ -49,3 +62,18 @@ class DocumentSearchSettings(BaseSettings):
         if self.embedding_model is not None:
             return self.embedding_model
         return DEFAULT_EMBEDDING_MODELS[self.embedding_provider]
+
+
+class AgentSettings(BaseSettings):
+    """Agent-layer chat model configuration (OpenRouter-compatible)."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    default_model: str = Field(
+        default="gpt-5.6-luna",
+        description="Default chat model used by the agent",
+    )

@@ -11,7 +11,7 @@ from pydantic import ValidationError
 
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
-from config import DocumentSearchSettings
+from config import AgentSettings, DocumentSearchSettings
 
 
 class TestDocumentSearchSettings:
@@ -61,6 +61,55 @@ class TestDocumentSearchSettings:
 
         gemini_settings = DocumentSearchSettings(embedding_provider="gemini")
         assert gemini_settings.resolved_embedding_model == "models/text-embedding-004"
+
+    def test_openrouter_provider_uses_openrouter_style_model_default(self, monkeypatch):
+        monkeypatch.delenv("DOCUMENT_EMBEDDING_MODEL", raising=False)
+
+        settings = DocumentSearchSettings(embedding_provider="openrouter")
+
+        assert settings.embedding_provider == "openrouter"
+        assert settings.resolved_embedding_model == "openai/text-embedding-3-small"
+
+    def test_openrouter_provider_honors_explicit_model_override(self):
+        settings = DocumentSearchSettings(
+            embedding_provider="openrouter",
+            embedding_model="openai/text-embedding-3-large",
+        )
+        assert settings.resolved_embedding_model == "openai/text-embedding-3-large"
+
+    def test_rejects_unknown_provider(self):
+        with pytest.raises(ValidationError):
+            DocumentSearchSettings(embedding_provider="cohere")
+
+    def test_openrouter_api_key_read_from_environment(self, monkeypatch):
+        monkeypatch.setenv("OPENROUTER_API_KEY", "or-key")
+
+        settings = DocumentSearchSettings()
+
+        assert settings.openrouter_api_key == "or-key"
+
+    def test_openrouter_api_key_defaults_to_none(self, monkeypatch):
+        monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+
+        assert DocumentSearchSettings().openrouter_api_key is None
+
+
+class TestAgentSettings:
+    """Test agent chat model settings."""
+
+    def test_prod_default_model(self, monkeypatch):
+        monkeypatch.delenv("DEFAULT_MODEL", raising=False)
+
+        settings = AgentSettings()
+
+        assert settings.default_model == "gpt-5.6-luna"
+
+    def test_environment_override(self, monkeypatch):
+        monkeypatch.setenv("DEFAULT_MODEL", "openai/gpt-5.6-luna")
+
+        settings = AgentSettings()
+
+        assert settings.default_model == "openai/gpt-5.6-luna"
 
     def test_resolved_embedding_model_honors_explicit_override(self):
         settings = DocumentSearchSettings(embedding_model="custom-model")
