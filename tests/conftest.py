@@ -145,7 +145,7 @@ def _fake_embeddings_for_document_search(_postgres_with_pgvector):
     """Replace provider-resolved embeddings with deterministic fake embeddings.
 
     This lets the knowledge-search pipeline exercise pgvector end-to-end
-    without calling the OpenAI or Gemini APIs. Tests that monkeypatch
+    without calling the provider APIs. Tests that monkeypatch
     document_search.resolve_embeddings themselves are unaffected.
     """
     fake_embeddings = DeterministicFakeEmbedding(size=768)
