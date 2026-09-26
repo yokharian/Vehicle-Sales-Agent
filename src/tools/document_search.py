@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -34,7 +33,7 @@ from sqlalchemy import UniqueConstraint, delete
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 import db.database as db_module
-from config import DEFAULT_EMBEDDING_MODELS, DocumentSearchSettings
+from config import OPENROUTER_BASE_URL, DocumentSearchSettings
 
 
 if TYPE_CHECKING:
@@ -47,10 +46,6 @@ CHUNK_SIZE = 500
 CHUNK_OVERLAP = 100
 _MARKDOWN_HEADERS = [("#", "h1"), ("##", "h2"), ("###", "h3")]
 
-
-DEFAULT_TOP_K = 6
-DEFAULT_CANDIDATES = 6
-DEFAULT_BM25_WEIGHT = 0.5
 MIN_K = 1
 MAX_K = 20
 
@@ -132,23 +127,20 @@ def chunk_documents(paths: list[Path]) -> list[Document]:
     return [chunk for path in paths for chunk in chunk_document(path)]
 
 
-def resolve_provider() -> str:
-    """Read the configured embedding provider name."""
-    settings = DocumentSearchSettings()
-    if settings.embedding_provider not in DEFAULT_EMBEDDING_MODELS:
-        raise ValueError(
-            f"Unknown embedding provider {settings.embedding_provider!r}; "
-            f"expected one of {list(DEFAULT_EMBEDDING_MODELS)}"
-        )
-    return settings.embedding_provider
-
-
 def resolve_embeddings():
     """Build the configured embedding model for indexing and querying."""
     settings = DocumentSearchSettings()
     model = settings.resolved_embedding_model
     if settings.embedding_provider == "openai":
         return OpenAIEmbeddings(model=model)
+    if settings.embedding_provider == "openrouter":
+        if not settings.openrouter_api_key:
+            raise ValueError("OPENROUTER_API_KEY is not set")
+        return OpenAIEmbeddings(
+            model=model,
+            base_url=OPENROUTER_BASE_URL,
+            api_key=settings.openrouter_api_key,
+        )
     return GoogleGenerativeAIEmbeddings(model=model)
 
 
@@ -236,32 +228,6 @@ def _tokenize(text: str) -> list[str]:
     return re.findall(r"\w+", text.lower())
 
 
-@dataclass(frozen=True)
-class HybridConfig:
-    """Retrieval parameters; ensemble weights must be validated against the
-    retrieval evaluation dataset before being treated as final."""
-
-    top_k: int = DEFAULT_TOP_K
-    bm25_candidates: int = DEFAULT_CANDIDATES
-    dense_candidates: int = DEFAULT_CANDIDATES
-    bm25_weight: float = DEFAULT_BM25_WEIGHT
-
-    @property
-    def dense_weight(self) -> float:
-        return 1.0 - self.bm25_weight
-
-
-def resolve_hybrid_config() -> HybridConfig:
-    """Read retrieval parameters from the validated application settings."""
-    settings = DocumentSearchSettings()
-    return HybridConfig(
-        top_k=settings.top_k,
-        bm25_candidates=settings.bm25_candidates,
-        dense_candidates=settings.dense_candidates,
-        bm25_weight=settings.bm25_weight,
-    )
-
-
 def build_bm25_retriever(chunks: list[Document], candidates: int) -> BM25Retriever:
     """Lexical retriever over the indexed corpus.
 
@@ -297,14 +263,18 @@ class DenseRetriever(BaseRetriever):
 def build_hybrid_retriever(
     chunks: list[Document],
     embeddings,
-    config: HybridConfig,
+    settings: DocumentSearchSettings,
 ) -> EnsembleRetriever:
-    """Combine BM25 and dense retrieval with rank fusion."""
-    bm25_retriever = build_bm25_retriever(chunks, config.bm25_candidates)
-    dense_retriever = DenseRetriever(embeddings=embeddings, candidates=config.dense_candidates)
+    """Combine BM25 and dense retrieval with rank fusion.
+
+    Ensemble weights must be validated against the retrieval evaluation
+    dataset before being treated as final.
+    """
+    bm25_retriever = build_bm25_retriever(chunks, settings.bm25_candidates)
+    dense_retriever = DenseRetriever(embeddings=embeddings, candidates=settings.dense_candidates)
     return EnsembleRetriever(
         retrievers=[bm25_retriever, dense_retriever],
-        weights=[config.bm25_weight, config.dense_weight],
+        weights=[settings.bm25_weight, 1.0 - settings.bm25_weight],
     )
 
 
@@ -324,14 +294,12 @@ knowledge base has no relevant content.""",
     parse_docstring=True,
     response_format="content_and_artifact",
 )
-def document_search_tool(query: str, k: int = 6) -> tuple[str, list[DocumentChunkResult]]:
+def document_search_tool(query: str, k: int) -> tuple[str, list[DocumentChunkResult]]:
     if not query or not query.strip():
         raise ValueError("query must not be empty")
-    clean_query = query.strip()
-    effective_k = max(MIN_K, min(k, MAX_K))
 
     try:
-        return _retrieve(clean_query, effective_k)
+        return _retrieve(query.strip(), k)
     except DocumentSearchError:
         raise
     except Exception as exc:
@@ -339,15 +307,15 @@ def document_search_tool(query: str, k: int = 6) -> tuple[str, list[DocumentChun
         raise DocumentSearchError("Document search is temporarily unavailable.") from exc
 
 
-def _retrieve(clean_query: str, effective_k: int) -> tuple[str, list[DocumentChunkResult]]:
+def _retrieve(clean_query: str, k: int) -> tuple[str, list[DocumentChunkResult]]:
     indexed_chunks = load_chunks()
     if not indexed_chunks:
         logger.warning("Document index is empty; run scripts/index_documents.py before querying.")
         return "", []
 
-    embeddings = resolve_embeddings()
-    config = resolve_hybrid_config()
-    documents = build_hybrid_retriever(indexed_chunks, embeddings, config).invoke(clean_query)
+    documents = build_hybrid_retriever(
+        indexed_chunks, resolve_embeddings(), DocumentSearchSettings()
+    ).invoke(clean_query)
 
     results = [
         DocumentChunkResult(
@@ -357,7 +325,7 @@ def _retrieve(clean_query: str, effective_k: int) -> tuple[str, list[DocumentChu
                 chunk_index=int(document.metadata["chunk_index"]),
             ),
         )
-        for document in documents[:effective_k]
+        for document in documents[:k]
     ]
     evidence_text = "\n\n".join(
         f"<SOURCE>{result.metadata.source}</SOURCE>\n{result.content}" for result in results
