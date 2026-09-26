@@ -14,8 +14,8 @@ os.environ.setdefault(
     "DATABASE_URL", "postgresql+psycopg2://invalid:invalid@localhost:59999/invalid"
 )
 
-# document_search instantiates OpenAIEmbeddings at module import time; give it
-# a dummy key. Tests replace it with deterministic fake embeddings before use.
+# document_search resolves embedding providers lazily; tests still install a
+# deterministic fake before any tool call touches the network.
 os.environ.setdefault("OPENAI_API_KEY", "test-key-for-testing")
 
 import pytest
@@ -142,26 +142,16 @@ def _seed_catalog_db(_postgres_with_pgvector):
 
 @pytest.fixture(scope="session", autouse=True)
 def _fake_embeddings_for_document_search(_postgres_with_pgvector):
-    """Replace OpenAI embeddings with deterministic fake embeddings in tests.
+    """Replace provider-resolved embeddings with deterministic fake embeddings.
 
-    This lets the document-search pipeline exercise PGVector end-to-end without
-    calling the OpenAI API. Tests that mock RetrievalSystem are unaffected.
+    This lets the knowledge-search pipeline exercise pgvector end-to-end
+    without calling the OpenAI or Gemini APIs. Tests that monkeypatch
+    document_search.resolve_embeddings themselves are unaffected.
     """
     fake_embeddings = DeterministicFakeEmbedding(size=768)
-    document_search.efficient_model = fake_embeddings
-
-    # The default value of RetrievalSystem.__init__ was bound at import time to
-    # the real OpenAIEmbeddings instance, so we patch the constructor to inject
-    # the fake embedding service when none is provided.
-    original_init = document_search.RetrievalSystem.__init__
-
-    def _patched_init(self, data_dir, embedding_function=None, **kwargs):
-        if embedding_function is None:
-            embedding_function = fake_embeddings
-        return original_init(self, data_dir, embedding_function, **kwargs)
-
-    document_search.RetrievalSystem.__init__ = _patched_init
+    original_resolver = document_search.resolve_embeddings
+    document_search.resolve_embeddings = lambda: fake_embeddings
 
     yield
 
-    document_search.RetrievalSystem.__init__ = original_init
+    document_search.resolve_embeddings = original_resolver
