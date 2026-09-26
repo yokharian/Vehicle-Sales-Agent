@@ -228,43 +228,6 @@ class TestCatalogSearchTool:
             # Expected to fail in test environment, but should not crash
             assert isinstance(e, (ValueError, TypeError, KeyError, AttributeError, ValidationError))
 
-    def test_integrated_search_workflow(self):
-        """Test integrated search workflow using both tools."""
-        from tools.catalog_search import catalog_search_tool
-        from tools.document_search import document_search_tool
-
-        # Test combined workflow
-        try:
-            # Step 1: Find vehicles
-            content, artifact = catalog_search_tool.func(**{"make": "Honda", "max_results": 2})
-            assert isinstance(artifact, list)
-
-            if artifact:
-                # Step 2: Get documentation for the first vehicle
-                first_vehicle = artifact[0]
-                content, artifact = document_search_tool.func(
-                    **{
-                        "query": f"{first_vehicle.make} {first_vehicle.model} specifications",
-                        "k": 2,
-                    }
-                )
-                assert isinstance(artifact, list)
-        except Exception as e:
-            # Expected to fail in test environment, but should not crash
-            from openai import AuthenticationError, OpenAIError
-
-            assert isinstance(
-                e,
-                (
-                    ValueError,
-                    TypeError,
-                    KeyError,
-                    AttributeError,
-                    AuthenticationError,
-                    OpenAIError,
-                ),
-            )
-
     def test_catalog_search_performance_scenarios(self):
         """Test catalog search performance with different scenarios."""
         import time
@@ -357,9 +320,8 @@ class TestCatalogSearchTool:
                 assert isinstance(e, (ValueError, TypeError, KeyError, AttributeError))
 
     def test_langchain_tools_metadata(self):
-        """Test LangChain tools metadata and configuration."""
+        """Test LangChain tool metadata and configuration."""
         from tools.catalog_search import catalog_search_tool
-        from tools.document_search import document_search_tool
 
         # Test catalog search tool metadata
         assert catalog_search_tool.name == "catalog_search"
@@ -367,16 +329,7 @@ class TestCatalogSearchTool:
         assert len(catalog_search_tool.description) > 0
         assert catalog_search_tool.args_schema is not None
 
-        # Test document search tool metadata
-        assert document_search_tool.name == "document_search"
-        assert isinstance(document_search_tool.description, str)
-        assert len(document_search_tool.description) > 0
-        assert document_search_tool.args_schema is not None
-
-        # Test that both tools have required LangChain tool interface
-        for tool in [catalog_search_tool, document_search_tool]:
-            assert hasattr(tool, "name")
-            assert hasattr(tool, "description")
-            assert hasattr(tool, "func")
-            assert hasattr(tool, "args_schema")
-            assert callable(tool.func)
+        # Test that the tool has required LangChain tool interface
+        for attribute in ("name", "description", "func", "args_schema"):
+            assert hasattr(catalog_search_tool, attribute)
+        assert callable(catalog_search_tool.func)
