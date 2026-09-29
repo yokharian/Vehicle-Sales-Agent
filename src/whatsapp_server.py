@@ -207,7 +207,6 @@ def start_whatsapp_server(host: str = "0.0.0.0", port: int = 5000, debug: bool =
     print("- TWILIO_ACCOUNT_SID")
     print("- TWILIO_AUTH_TOKEN")
     print("- TWILIO_WHATSAPP_NUMBER")
-    print("- OPENAI_API_KEY")
     print()
 
     uvicorn.run(app, host=host, port=port, log_level="debug" if debug else "info")
