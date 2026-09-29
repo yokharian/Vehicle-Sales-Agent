@@ -95,10 +95,14 @@ All configuration is loaded with `pydantic-settings` from `.env` (see [`.env.exa
 |---|---|
 | `MODEL_PROVIDER` | Chat provider: `openai` or `openrouter` (default `openrouter`) |
 | `DEFAULT_MODEL` | Chat model (default `gpt-5.6-luna`) |
+| `VERBOSE` | Agent debug output (optional, default `false`) |
 | `OPENAI_API_KEY` / `OPENROUTER_API_KEY` | Provider API keys |
 | `DOCUMENT_EMBEDDING_PROVIDER` | Embedding provider: `openai` or `openrouter` |
 | `DOCUMENT_EMBEDDING_MODEL` | Embedding model (falls back to provider default) |
 | `DATABASE_URL` | PostgreSQL connection string |
+| `DB_ECHO` | Echo SQL statements (optional, default `false`) |
+| `SUPABASE_URL` | Optional — set to enable Supabase JWT auth; omit to run open (anonymous) |
+| `SUPABASE_AUDIENCE` | Expected token `aud` claim (optional, default `authenticated`) |
 | `TWILIO_*` | Twilio account SID, auth token, WhatsApp number |
 
 ## 🔧 How It Works
