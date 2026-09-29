@@ -13,14 +13,14 @@ from typing import Any
 
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
-
+from langfuse.langchain import CallbackHandler
 
 sys.path.append(str(Path(__file__).parent))
 
 from config import OPENROUTER_BASE_URL, AgentSettings
 from tools.catalog_search import catalog_search_tool
 from tools.document_search import document_search_tool
-
+from tools.financing_calculator import financing_calculator_tool
 
 SYSTEM_PROMPT = """Eres un asistente virtual especializado en búsqueda de vehículos y atención al cliente para una empresa automotriz que actúa como agente comercial de Kavak. Asistes al cliente en su búsqueda y respondes preguntas generales sobre la empresa, siempre usando solo las herramientas disponibles.
 
@@ -42,9 +42,10 @@ CONTEXTO OPERACIONAL:
 - Comportamiento: Comprender entradas con errores o expresiones vagas y responder de forma directa en lo comercial y cordial en lo informativo."""
 
 SETTINGS = AgentSettings()
+langfuse_handler = CallbackHandler()
 
 
-def build_chat_model(model_name: str) -> ChatOpenAI:
+def build_chat_model(model_name: str, session_id: str = "") -> ChatOpenAI:
     """Build a chat model from the configured provider."""
     common_kwargs = {"temperature": 0.1, "max_tokens": 2000}
     if SETTINGS.model_provider == "openrouter":
@@ -54,24 +55,39 @@ def build_chat_model(model_name: str) -> ChatOpenAI:
             model=model_name,
             api_key=SETTINGS.openrouter_api_key,
             base_url=OPENROUTER_BASE_URL,
+            default_headers={
+                "HTTP-Referer": "https://vsa.demo.yokharian.dev",
+                "X-OpenRouter-Title": "Vehicle Sales Agent",
+                "X-OpenRouter-Categories": "general-chat",
+                "X-OpenRouter-App-Visibility": "hidden",
+            },
+            extra_body={"session_id": session_id},
             **common_kwargs,
         )
-    if not SETTINGS.openai_api_key:
-        raise ValueError("OPENAI_API_KEY is not set")
-    return ChatOpenAI(model=model_name, api_key=SETTINGS.openai_api_key, **common_kwargs)
+    elif SETTINGS.model_provider == "openai":
+        if not SETTINGS.openai_api_key:
+            raise ValueError("OPENAI_API_KEY is not set")
+        return ChatOpenAI(
+            model=model_name, api_key=SETTINGS.openai_api_key, **common_kwargs
+        )
+    else:
+        raise ValueError(
+            f"Unsupported model provider: {SETTINGS.model_provider}. "
+            "Supported providers are 'openrouter' and 'openai'."
+        )
 
 
 standard_model = build_chat_model(SETTINGS.default_model)
 
-tools = [catalog_search_tool, document_search_tool]
+tools = [catalog_search_tool, document_search_tool, financing_calculator_tool]
 
 agent = create_agent(
-    name="commercial-agent",
+    name="vehicle-sales-agent",
     model=standard_model,
     tools=tools,
     system_prompt=SYSTEM_PROMPT,
     debug=SETTINGS.debug,
-)
+).with_config({"callbacks": [langfuse_handler]})
 
 
 def chat(message: str) -> dict[str, Any]:
