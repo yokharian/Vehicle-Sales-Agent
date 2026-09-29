@@ -1,0 +1,29 @@
+{
+  "image_distro": "wolfi",
+  "dependencies": [
+    "."
+  ],
+  "graphs": {
+    "agent": "./src/agent.py:agent"
+  },
+  "env": ".env",
+  "auth": {
+    "path": "./src/auth.py:auth",
+    "disable_studio_auth": false,
+    "openapi": {
+      "securitySchemes": {
+        "bearerAuth": {
+          "type": "http",
+          "scheme": "bearer",
+          "bearerFormat": "JWT",
+          "description": "Supabase access token"
+        }
+      },
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ]
+    }
+  }
+}

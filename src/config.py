@@ -103,6 +103,36 @@ class AgentSettings(BaseSettings):
     )
 
 
+class SupabaseSettings(BaseSettings):
+    """Supabase Auth settings used by the LangGraph auth middleware (src/auth.py).
+
+    Optional: when `url` is set, requests must carry a Supabase access token
+    as `Authorization: Bearer <jwt>`, validated against the project's JWKS
+    endpoint plus issuer, expiry and audience. When unset, the server runs
+    open under a single anonymous identity (e.g. local pgvector-only setups).
+    """
+
+    model_config = SettingsConfigDict(
+        env_prefix="SUPABASE_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    url: str | None = Field(
+        default=None,
+        description="Supabase project URL; unset disables JWT auth (server runs open)",
+    )
+    audience: str = Field(
+        default="authenticated",
+        description="Expected `aud` claim of user access tokens",
+    )
+
+    @property
+    def enabled(self) -> bool:
+        return self.url is not None
+
+
 class TwilioSettings(BaseSettings):
     """Twilio WhatsApp credentials."""
 
