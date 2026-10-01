@@ -99,7 +99,8 @@ All configuration is loaded with `pydantic-settings` from `.env` (see [`.env.exa
 | `OPENAI_API_KEY` / `OPENROUTER_API_KEY` | Provider API keys |
 | `DOCUMENT_EMBEDDING_PROVIDER` | Embedding provider: `openai` or `openrouter` |
 | `DOCUMENT_EMBEDDING_MODEL` | Embedding model (falls back to provider default) |
-| `DATABASE_URL` | PostgreSQL connection string |
+| `POSTGRES_URI` | PostgreSQL connection string (CRUD, tables) |
+| `PGVECTOR_URI` | pgvector connection string (defaults to `POSTGRES_URI` when unset) |
 | `DB_ECHO` | Echo SQL statements (optional, default `false`) |
 | `SUPABASE_URL` | Optional — set to enable Supabase JWT auth; omit to run open (anonymous) |
 | `SUPABASE_AUDIENCE` | Expected token `aud` claim (optional, default `authenticated`) |
