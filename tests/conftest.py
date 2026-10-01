@@ -8,11 +8,13 @@ from pathlib import Path
 # Make the application source importable from tests.
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-# db.database yields its global engine from DATABASE_URL at import time; the
-# URL must point somewhere valid until the testcontainer replaces it below.
+# db.database yields its global engines from POSTGRES_URI / PGVECTOR_URI at
+# import time; the URLs must point somewhere valid until the testcontainer
+# replaces them below. Both default to the same container URL.
 os.environ.setdefault(
-    "DATABASE_URL", "postgresql+psycopg2://invalid:invalid@localhost:59999/invalid"
+    "POSTGRES_URI", "postgresql+psycopg2://invalid:invalid@localhost:59999/invalid"
 )
+os.environ.setdefault("PGVECTOR_URI", "postgresql+psycopg2://invalid:invalid@localhost:59999/invalid")
 
 # document_search resolves embedding providers lazily; tests still install a
 # deterministic fake before any tool call touches the network.
@@ -41,11 +43,16 @@ def _postgres_with_pgvector():
     container.start()
 
     url = container.get_connection_url()
-    os.environ["DATABASE_URL"] = url
+    os.environ["POSTGRES_URI"] = url
+    os.environ["PGVECTOR_URI"] = url
 
-    # Swap the global engine so DAO / tool code talks to the container.
+    # Swap both global engines so DAO / tool code talks to the container.
     db_module.engine.dispose()
     db_module.engine = db_module.create_engine(
+        url, echo=False, pool_pre_ping=True, pool_recycle=300
+    )
+    db_module.pgvector_engine.dispose()
+    db_module.pgvector_engine = db_module.create_engine(
         url, echo=False, pool_pre_ping=True, pool_recycle=300
     )
 
