@@ -23,11 +23,9 @@ from pathlib import Path
 import jwt
 from langgraph_sdk import Auth
 
-
 sys.path.append(str(Path(__file__).parent))
 
 from config import SupabaseSettings
-
 
 auth = Auth()
 
@@ -39,7 +37,7 @@ ANONYMOUS_IDENTITY = "anonymous"
 
 _jwks_client: jwt.PyJWKClient | None = (
     jwt.PyJWKClient(f"{supabase.url.rstrip('/')}/auth/v1/.well-known/jwks.json")
-    if supabase.url is not None
+    if supabase.enabled
     else None
 )
 
@@ -70,18 +68,18 @@ def _decode_token(token: str) -> dict:
 async def get_current_user(authorization: str) -> Auth.types.MinimalUserDict:
     """Validate the Bearer token, or return an anonymous user when auth is off."""
     if not supabase.enabled:
-        return {"identity": ANONYMOUS_IDENTITY, "is_authenticated": True}
-
+        return {"identity": ANONYMOUS_IDENTITY}
+    
     if not authorization.startswith("Bearer "):
         raise HTTPException(401, "Expected Authorization scheme: Bearer <access_token>")
-
+    
     try:
         payload = await asyncio.to_thread(
             _decode_token, authorization.removeprefix("Bearer ").strip()
         )
     except (jwt.PyJWTError, jwt.PyJWKClientError) as e:
         raise HTTPException(401, f"Invalid token: {e}") from None
-
+    
     metadata = payload.get("user_metadata") or {}
     return {
         "identity": payload["sub"],
@@ -90,14 +88,41 @@ async def get_current_user(authorization: str) -> Auth.types.MinimalUserDict:
     }
 
 
-@auth.on
-async def add_owner(ctx: Auth.types.AuthContext, value: dict) -> Auth.types.FilterType:
-    """Scope resources to their creator: private threads per user.
+@auth.on.threads.create
+async def on_thread_create(
+        ctx: Auth.types.AuthContext,
+        value: Auth.types.on.threads.create.value,
+):
+    """Add owner when creating threads.
 
-    Tags created resources with the caller's identity in metadata; every
-    action gets a metadata filter so users only see resources they own.
-    With auth disabled, every request shares the anonymous identity.
+    This handler runs when creating new threads and does two things:
+    1. Sets metadata on the thread being created to track ownership
+    2. Returns a filter that ensures only the creator can access it
     """
-    filters = {"owner": ctx.user.identity}
-    value.setdefault("metadata", {}).update(filters)
-    return filters
+    # Example value:
+    #  {'thread_id': UUID('99b045bc-b90b-41a8-b882-dabc541cf740'), 'metadata': {}, 'if_exists': 'raise'}
+
+    # Add owner metadata to the thread being created
+    # This metadata is stored with the thread and persists
+    metadata = value.setdefault("metadata", {})
+    metadata["owner"] = ctx.user.identity
+
+    # Return filter to restrict access to just the creator
+    return {"owner": ctx.user.identity}
+
+
+@auth.on.threads.read
+async def on_thread_read(
+        ctx: Auth.types.AuthContext,
+        value: Auth.types.on.threads.read.value,
+):
+    """Only let users read their own threads.
+
+    This handler runs on read operations. We don't need to set
+    metadata since the thread already exists - we just need to
+    return a filter to ensure users can only see their own threads.
+    """
+    print(f"read {ctx.user.identity=}")
+
+    return {"owner": ctx.user.identity}
+
