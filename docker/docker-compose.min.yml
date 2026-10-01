@@ -1,0 +1,62 @@
+# Minimal self-hosted deployment - WEB.
+services:
+  langgraph-api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    ports:
+      - "2024:8000"
+    env_file:
+      - ../.env
+    environment:
+      # in-memory runtime
+      - LANGGRAPH_RUNTIME_EDITION=inmem
+      # LangGraph run queue (fakeredis)
+      - REDIS_URI=fake
+
+      # Vehicle catalog in-memory sqlite
+      - "POSTGRES_URI="
+      - "PGVECTOR_URI=postgres://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable"
+
+      # Agent chat model
+      - MODEL_PROVIDER=${MODEL_PROVIDER}
+      - DEFAULT_MODEL=${DEFAULT_MODEL}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+
+      # Document search embeddings
+      - DOCUMENT_OPENAI_API_KEY=${DOCUMENT_OPENAI_API_KEY}
+      - DOCUMENT_OPENROUTER_API_KEY=${DOCUMENT_OPENROUTER_API_KEY}
+      - DOCUMENT_EMBEDDING_PROVIDER=${DOCUMENT_EMBEDDING_PROVIDER}
+      - DOCUMENT_EMBEDDING_MODEL=${DOCUMENT_EMBEDDING_MODEL}
+
+      # Optional Langfuse Tracing
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_BASE_URL=${LANGFUSE_BASE_URL}
+      - LANGFUSE_TRACING_ENVIRONMENT=${LANGFUSE_TRACING_ENVIRONMENT}
+
+      # Optional Supabase JWT auth (unset = server runs open)
+      - SUPABASE_URL=${SUPABASE_URL}
+    volumes:
+      - ../data:/deps/vehicle-sales-agent/data
+    restart: unless-stopped
+
+  langgraph-postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: langgraph
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d langgraph"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
