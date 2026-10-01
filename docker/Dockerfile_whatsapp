@@ -1,0 +1,26 @@
+# uv-managed Python 3.12 image (uv + Python bundled)
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install dependencies first for better Docker layer caching
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
+
+# Copy the entire project
+COPY . .
+
+# Set environment variables
+ENV PYTHONPATH=/app/src
+ENV PYTHONUNBUFFERED=1
+
+# Expose the port
+EXPOSE 5000
+
+# Health check (urllib: stdlib, no curl needed in the image)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+
+# Run the WhatsApp server
+CMD ["uv", "run", "python", "src/whatsapp_server.py", "--host", "0.0.0.0", "--port", "5000"]

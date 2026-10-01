@@ -1,0 +1,92 @@
+services:
+  whatsapp-server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile_whatsapp
+    ports:
+      - "5000:5000"
+    env_file:
+      - ../.env
+    environment:
+      # Vehicle catalog + knowledge base (pgvector)
+      - POSTGRES_URI=${POSTGRES_URI:-postgresql+asyncpg://postgres:postgres@db:5432/langgraph?sslmode=disable}
+      - PGVECTOR_URI=${PGVECTOR_URI:-postgresql+asyncpg://postgres:postgres@db:5432/langgraph?sslmode=disable}
+
+      # Agent chat model
+      - MODEL_PROVIDER=${MODEL_PROVIDER}
+      - DEFAULT_MODEL=${DEFAULT_MODEL}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+
+      # Document search embeddings
+      - DOCUMENT_OPENAI_API_KEY=${DOCUMENT_OPENAI_API_KEY}
+      - DOCUMENT_OPENROUTER_API_KEY=${DOCUMENT_OPENROUTER_API_KEY}
+      - DOCUMENT_EMBEDDING_PROVIDER=${DOCUMENT_EMBEDDING_PROVIDER}
+      - DOCUMENT_EMBEDDING_MODEL=${DOCUMENT_EMBEDDING_MODEL}
+
+      # Optional Langfuse Tracing
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_BASE_URL=${LANGFUSE_BASE_URL}
+      - LANGFUSE_TRACING_ENVIRONMENT=${LANGFUSE_TRACING_ENVIRONMENT}
+
+      # Twilio configuration (used by WhatsApp integrations)
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_WHATSAPP_NUMBER=${TWILIO_WHATSAPP_NUMBER}
+
+      # Optional Supabase JWT auth (unset = server runs open)
+      - SUPABASE_URL=${SUPABASE_URL}
+    volumes:
+      - ../data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+      csv-ingest:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # One-shot CSV ingestion: seeds the vehicle catalog and creates tables, then exits.
+  # The WhatsApp server waits for this container to finish successfully.
+  csv-ingest:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile_whatsapp
+    command: ["uv", "run", "python", "scripts/ingest_csv.py", "--file", "data/sample_vehicles.csv", "--create-tables"]
+    env_file:
+      - ../.env
+    environment:
+      - POSTGRES_URI=${POSTGRES_URI:-postgresql+asyncpg://postgres:postgres@db:5432/langgraph?sslmode=disable}
+      - PGVECTOR_URI=${PGVECTOR_URI:-postgresql+asyncpg://postgres:postgres@db:5432/langgraph?sslmode=disable}
+    volumes:
+      - ../data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: langgraph
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d langgraph"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
