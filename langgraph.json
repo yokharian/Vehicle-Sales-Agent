@@ -1,5 +1,6 @@
 {
   "image_distro": "wolfi",
+  "python_version": "3.12",
   "dependencies": [
     "."
   ],
