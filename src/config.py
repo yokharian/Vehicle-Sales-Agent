@@ -39,7 +39,7 @@ class DocumentSearchSettings(BaseSettings):
         description="Embedding provider: 'openai' or 'openrouter'",
     )
     embedding_model: str | None = Field(
-        default=None,
+        default="openai/text-embedding-3-small",
         description="Embedding model override; None uses the provider default",
     )
     openrouter_api_key: str | None = Field(
@@ -130,7 +130,7 @@ class SupabaseSettings(BaseSettings):
 
     @property
     def enabled(self) -> bool:
-        return self.url is not None
+        return bool(self.url)
 
 
 class TwilioSettings(BaseSettings):
