@@ -271,9 +271,7 @@ class TestCSVIngestion:
 
         for value, expected in test_values:
             result = parse_boolean(value)
-            assert result == expected, (
-                f"parse_boolean({value!r}) = {result}, expected {expected}"
-            )
+            assert result == expected, f"parse_boolean({value!r}) = {result}, expected {expected}"
 
     def test_data_validation_comprehensive(self):
         """Test data validation with various data quality scenarios."""

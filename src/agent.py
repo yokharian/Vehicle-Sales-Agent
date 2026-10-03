@@ -67,9 +67,7 @@ def build_chat_model(model_name: str, session_id: str = "") -> ChatOpenAI:
     elif SETTINGS.model_provider == "openai":
         if not SETTINGS.openai_api_key:
             raise ValueError("OPENAI_API_KEY is not set")
-        return ChatOpenAI(
-            model=model_name, api_key=SETTINGS.openai_api_key, **common_kwargs
-        )
+        return ChatOpenAI(model=model_name, api_key=SETTINGS.openai_api_key, **common_kwargs)
     else:
         raise ValueError(
             f"Unsupported model provider: {SETTINGS.model_provider}. "

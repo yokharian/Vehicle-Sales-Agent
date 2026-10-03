@@ -14,7 +14,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 os.environ.setdefault(
     "POSTGRES_URI", "postgresql+psycopg2://invalid:invalid@localhost:59999/invalid"
 )
-os.environ.setdefault("PGVECTOR_URI", "postgresql+psycopg2://invalid:invalid@localhost:59999/invalid")
+os.environ.setdefault(
+    "PGVECTOR_URI", "postgresql+psycopg2://invalid:invalid@localhost:59999/invalid"
+)
 
 # document_search resolves embedding providers lazily; tests still install a
 # deterministic fake before any tool call touches the network.

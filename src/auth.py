@@ -69,17 +69,17 @@ async def get_current_user(authorization: str) -> Auth.types.MinimalUserDict:
     """Validate the Bearer token, or return an anonymous user when auth is off."""
     if not supabase.enabled:
         return {"identity": ANONYMOUS_IDENTITY}
-    
+
     if not authorization.startswith("Bearer "):
         raise HTTPException(401, "Expected Authorization scheme: Bearer <access_token>")
-    
+
     try:
         payload = await asyncio.to_thread(
             _decode_token, authorization.removeprefix("Bearer ").strip()
         )
     except (jwt.PyJWTError, jwt.PyJWKClientError) as e:
         raise HTTPException(401, f"Invalid token: {e}") from None
-    
+
     metadata = payload.get("user_metadata") or {}
     return {
         "identity": payload["sub"],
@@ -90,8 +90,8 @@ async def get_current_user(authorization: str) -> Auth.types.MinimalUserDict:
 
 @auth.on.threads.create
 async def on_thread_create(
-        ctx: Auth.types.AuthContext,
-        value: Auth.types.on.threads.create.value,
+    ctx: Auth.types.AuthContext,
+    value: Auth.types.on.threads.create.value,
 ):
     """Add owner when creating threads.
 
@@ -113,8 +113,8 @@ async def on_thread_create(
 
 @auth.on.threads.read
 async def on_thread_read(
-        ctx: Auth.types.AuthContext,
-        value: Auth.types.on.threads.read.value,
+    ctx: Auth.types.AuthContext,
+    value: Auth.types.on.threads.read.value,
 ):
     """Only let users read their own threads.
 
@@ -125,4 +125,3 @@ async def on_thread_read(
     print(f"read {ctx.user.identity=}")
 
     return {"owner": ctx.user.identity}
-
