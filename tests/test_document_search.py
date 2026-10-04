@@ -2,6 +2,8 @@
 Tests for the document search tool and retrieval stack.
 """
 
+import importlib.util
+import logging
 import os
 import sys
 from pathlib import Path
@@ -10,7 +12,7 @@ import pytest
 from langchain_core.documents import Document
 from langchain_core.embeddings import DeterministicFakeEmbedding
 from pydantic import ValidationError
-from sqlalchemy import delete
+from sqlalchemy import delete, text
 
 
 sys.path.append(str(Path(__file__).parent.parent / "src"))
@@ -33,8 +35,10 @@ from tools.document_search import (
     document_search_tool,
     ensure_tables,
     load_chunks,
+    purge_removed_sources,
     reindex,
     resolve_embeddings,
+    upsert_document_chunks,
 )
 
 
@@ -374,3 +378,142 @@ class TestDocumentSearchTool:
 
         with pytest.raises(DocumentSearchError, match="temporarily unavailable"):
             document_search_tool.func(query="garantía", k=6)
+
+
+class TestGranularIngest:
+    """Test granular ingest primitives, schema migration, and the indexing CLI."""
+
+    def test_upsert_is_idempotent(self, document_index):
+        financing_chunks = [
+            chunk for chunk in SEED_CHUNKS if chunk.metadata["source"] == "financing.md"
+        ]
+
+        first = upsert_document_chunks("financing.md", financing_chunks, document_index)
+        after_first = load_chunks()
+        second = upsert_document_chunks("financing.md", financing_chunks, document_index)
+        after_second = load_chunks()
+
+        assert first == second == len(financing_chunks)
+        assert len(after_second) == len(after_first) == len(SEED_CHUNKS)
+        pairs = [(doc.metadata["source"], doc.metadata["chunk_index"]) for doc in after_second]
+        assert len(pairs) == len(set(pairs))
+
+    @pytest.mark.usefixtures("document_index")
+    def test_purge_removes_only_missing_sources(self):
+        deleted = purge_removed_sources({"financing.md"})
+
+        remaining = load_chunks()
+
+        assert deleted == len(SEED_CHUNKS) - 2
+        assert len(remaining) == 2
+        assert {doc.metadata["source"] for doc in remaining} == {"financing.md"}
+        assert [doc.page_content for doc in remaining] == [
+            chunk.page_content
+            for chunk in SEED_CHUNKS
+            if chunk.metadata["source"] == "financing.md"
+        ]
+
+    def test_reindex_full_replace_compat(self, document_index):
+        replacement = [SEED_CHUNKS[0], SEED_CHUNKS[2]]
+
+        written = reindex(replacement, document_index)
+
+        assert written == len(replacement)
+        with db_module.get_pgvector_session_sync() as session:
+            rows = session.query(DocumentChunk.content_hash).all()
+        assert len(rows) == len(replacement)
+        assert all(row.content_hash is not None for row in rows)
+
+    def test_ensure_tables_idempotent(self):
+        ensure_tables()
+        ensure_tables()
+
+    def test_legacy_table_upgrade(self):
+        with db_module.pgvector_engine.begin() as conn:
+            conn.execute(text("DROP TABLE IF EXISTS document_chunks"))
+            conn.execute(
+                text(
+                    "CREATE TABLE document_chunks ("
+                    "id SERIAL PRIMARY KEY, "
+                    "source VARCHAR NOT NULL, "
+                    "chunk_index INTEGER NOT NULL, "
+                    "content TEXT NOT NULL, "
+                    "embedding vector)"
+                )
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO document_chunks (source, chunk_index, content, embedding) "
+                    "VALUES ('legacy.md', 0, 'legacy content', '[0.1,0.2,0.3]'::vector)"
+                )
+            )
+
+        try:
+            ensure_tables()
+
+            with db_module.pgvector_engine.connect() as conn:
+                content_hash_columns = conn.execute(
+                    text(
+                        "SELECT column_name FROM information_schema.columns "
+                        "WHERE table_name = 'document_chunks' AND column_name = 'content_hash'"
+                    )
+                ).fetchall()
+                assert content_hash_columns
+                legacy_row = conn.execute(
+                    text("SELECT source, chunk_index, content, content_hash FROM document_chunks")
+                ).fetchone()
+
+            assert tuple(legacy_row)[:3] == ("legacy.md", 0, "legacy content")
+            assert legacy_row[3] is None
+        finally:
+            ensure_tables()
+            reindex(SEED_CHUNKS, FAKE_EMBEDDINGS)
+
+    @pytest.mark.usefixtures("document_index")
+    def test_missing_table_raises_controlled_error(self):
+        with db_module.pgvector_engine.begin() as conn:
+            conn.execute(text("DROP TABLE IF EXISTS document_chunks"))
+
+        try:
+            with pytest.raises(DocumentSearchError, match="temporarily unavailable"):
+                document_search_tool.func(query="garantía", k=3)
+        finally:
+            ensure_tables()
+            reindex(SEED_CHUNKS, FAKE_EMBEDDINGS)
+
+    def test_cli_hash_skip_and_missing_file(self, monkeypatch, caplog):
+        caplog.set_level(logging.INFO)
+
+        script_path = Path(__file__).parent.parent / "scripts" / "index_documents.py"
+        spec = importlib.util.spec_from_file_location("index_documents", script_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        embed_calls = []
+
+        class _CountingEmbeddings:
+            def embed_documents(self, texts):
+                embed_calls.append(list(texts))
+                return FAKE_EMBEDDINGS.embed_documents(texts)
+
+            def embed_query(self, query):
+                return FAKE_EMBEDDINGS.embed_query(query)
+
+        counting = _CountingEmbeddings()
+        monkeypatch.setattr(module, "resolve_embeddings", lambda: counting)
+
+        monkeypatch.setattr(sys, "argv", ["index_documents"])
+        assert module.main() == 0
+        assert len(embed_calls) >= 1
+
+        after_first_run = len(embed_calls)
+        caplog.clear()
+        assert module.main() == 0
+        assert len(embed_calls) == after_first_run
+        assert "unchanged, skipped" in caplog.text
+
+        before_missing = load_chunks()
+        monkeypatch.setattr(sys, "argv", ["index_documents", "--file", "nonexistent.md"])
+        assert module.main() == 1
+        assert len(embed_calls) == after_first_run
+        assert load_chunks() == before_missing
