@@ -70,7 +70,7 @@ async def get_current_user(authorization: str) -> Auth.types.MinimalUserDict:
     if not supabase.enabled:
         return {"identity": ANONYMOUS_IDENTITY}
 
-    if not authorization.startswith("Bearer "):
+    if authorization is None or not authorization.startswith("Bearer "):
         raise HTTPException(401, "Expected Authorization scheme: Bearer <access_token>")
 
     try:
@@ -122,6 +122,4 @@ async def on_thread_read(
     metadata since the thread already exists - we just need to
     return a filter to ensure users can only see their own threads.
     """
-    print(f"read {ctx.user.identity=}")
-
     return {"owner": ctx.user.identity}
