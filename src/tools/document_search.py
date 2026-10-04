@@ -28,7 +28,7 @@ from langchain_text_splitters import (
 )
 from pgvector.sqlalchemy import Vector
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import UniqueConstraint, delete
+from sqlalchemy import Text, UniqueConstraint, delete, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 import db.database as db_module
@@ -160,11 +160,25 @@ class DocumentChunk(_DocumentBase):
     # Dim-free vector column: any embedding model can be indexed; the full
     # replace on re-index keeps a single vector space per index.
     embedding = mapped_column(Vector())
+    content_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 def ensure_tables() -> None:
-    """Create the document table if it does not exist yet."""
+    """Create the document table if it does not exist yet.
+
+    On a fresh database, ``create_all`` already provisions ``content_hash`` from
+    the model. For pre-existing tables (e.g. the live Supabase instance) the
+    follow-up ``ALTER TABLE ... ADD COLUMN IF NOT EXISTS`` is a no-op once the
+    column is present, keeping the upgrade additive and idempotent.
+    """
     _DocumentBase.metadata.create_all(db_module.pgvector_engine)
+    with db_module.pgvector_engine.begin() as conn:
+        conn.execute(
+            text(
+                "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS "
+                "content_hash TEXT"
+            )
+        )
 
 
 def _row_document(row: DocumentChunk) -> Document:
