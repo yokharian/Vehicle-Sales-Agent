@@ -85,6 +85,8 @@ services:
     environment:
       - POSTGRES_URI=${POSTGRES_URI:-postgresql+asyncpg://postgres:postgres@db:5432/langgraph?sslmode=disable}
       - PGVECTOR_URI=${PGVECTOR_URI:-postgresql+asyncpg://postgres:postgres@db:5432/langgraph?sslmode=disable}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - DOCUMENT_OPENAI_API_KEY=${DOCUMENT_OPENAI_API_KEY}
       - DOCUMENT_OPENROUTER_API_KEY=${DOCUMENT_OPENROUTER_API_KEY}
       - DOCUMENT_EMBEDDING_PROVIDER=${DOCUMENT_EMBEDDING_PROVIDER}
