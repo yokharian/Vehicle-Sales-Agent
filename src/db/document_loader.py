@@ -1,107 +1,92 @@
-import os
-from typing import List, Iterable, Tuple
+"""
+Loading and chunking of approved knowledge-base documents (``.md`` / ``.txt``).
 
-from langchain_community.document_loaders import TextLoader
+Canonical implementation owned by the :class:`DocumentLoader` class. The
+module-level functions (``discover_documents``, ``chunk_document``,
+``chunk_documents``) are thin compatibility delegates that re-export the same
+behavior, so that ``tools.document_search`` and its re-exports keep working
+unchanged.
+"""
+
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+
 from langchain_core.documents import Document
 from langchain_text_splitters import (
-    RecursiveCharacterTextSplitter,
     MarkdownHeaderTextSplitter,
+    RecursiveCharacterTextSplitter,
 )
 
 
+logger = logging.getLogger(__name__)
+
+SUPPORTED_SUFFIXES = (".md", ".txt")
+CHUNK_SIZE = 500
+CHUNK_OVERLAP = 100
+_MARKDOWN_HEADERS = [("#", "h1"), ("##", "h2"), ("###", "h3")]
+
+
 class DocumentLoader:
-    def __init__(self, documents_path: str, encoding: str = "utf-8"):
-        """
-        Initialize a loader for reading plain-text documents.
+    """Read and chunk the approved knowledge-base documents for retrieval."""
 
-        :param documents_path: Base directory containing .txt documents.
-        :param encoding: File encoding to use when reading.
-        """
-        self.documents_path = documents_path
-        self.encoding = encoding
+    def __init__(self, documents_path: str | Path) -> None:
+        """Remember the directory to scan; parsing is lazy."""
+        self.documents_path = Path(documents_path)
 
-    def _iter_files(self) -> Iterable[Tuple[str, List[str]]]:
-        """Yield a single (root, files) pair for the target directory."""
-        if not os.path.isdir(self.documents_path):
+    def discover(self) -> list[Path]:
+        """List supported, non-hidden documents in sorted order."""
+        directory = self.documents_path
+        if not directory.is_dir():
             return []
-        root = self.documents_path
+        return sorted(
+            path
+            for path in directory.iterdir()
+            if path.is_file()
+            and path.suffix.lower() in SUPPORTED_SUFFIXES
+            and not path.name.startswith(".")
+        )
+
+    @staticmethod
+    def chunk(path: Path) -> list[Document]:
+        """Read one document and split it into indexed chunks."""
         try:
-            files = os.listdir(root)
-        except OSError:
-            files = []
-        yield root, files
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            logger.warning("Skipping unreadable document %s: %s", path.name, type(exc).__name__)
+            return []
 
-    def load_documents(self, chunk_size=1000, chunk_overlap=200) -> List[Document]:
-        """
-        Load .txt documents from the configured directory.
+        if path.suffix.lower() == ".md":
+            sections = MarkdownHeaderTextSplitter(
+                headers_to_split_on=_MARKDOWN_HEADERS,
+                strip_headers=False,
+            ).split_text(text)
+            section_texts = [section.page_content for section in sections]
+        else:
+            section_texts = [text]
 
-        - Skips hidden files.
-        - Ignores read errors and undecodable characters.
-        - Returns documents in deterministic (sorted) order.
-        """
-        output: List[Document] = []
-        if not os.path.isdir(self.documents_path):
-            return output
+        splitter = RecursiveCharacterTextSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP)
+        chunks = [
+            Document(page_content=piece, metadata={"source": path.name})
+            for section in section_texts
+            for piece in splitter.split_text(section)
+        ]
+        for chunk_index, chunk in enumerate(chunks):
+            chunk.metadata["chunk_index"] = chunk_index
+        return chunks
 
-        for root, files in self._iter_files():
-            for filename in sorted(
-                f
-                for f in files
-                if (f.endswith(".txt") or f.endswith(".md")) and not f.startswith(".")
-            ):
-                path = os.path.join(root, filename)
-                try:
-                    loader = TextLoader(file_path=path, encoding=self.encoding)
-                    raw_docs: List[Document] = loader.load()
 
-                    # 1) Split .md headers
-                    docs_to_split: List[Document] = []
-                    if filename.endswith(".md"):
-                        mds = []
-                        md_splitter = MarkdownHeaderTextSplitter(
-                            headers_to_split_on=[
-                                ("#", "h1"),
-                                ("##", "h2"),
-                                ("###", "h3"),
-                            ],
-                            strip_headers=False,
-                        )
-                        for d in raw_docs:
-                            mds.extend(md_splitter.split_text(d.page_content))
-                        docs_to_split = mds
+def discover_documents(documents_dir: str | Path) -> list[Path]:
+    """Compatibility delegate for :meth:`DocumentLoader.discover`."""
+    return DocumentLoader(documents_dir).discover()
 
-                        chunks = []
-                        for d in docs_to_split:
-                            # Añade metadatos útiles para trazabilidad
-                            d.metadata.setdefault("source", str(path))
-                            d.metadata.setdefault("filename", filename)
-                            chunks.append(d)
-                    else:
-                        docs_to_split = raw_docs
 
-                        # 2) Split recursivo en chunks
-                        rc_splitter = RecursiveCharacterTextSplitter(
-                            chunk_size=chunk_size,
-                            chunk_overlap=chunk_overlap,
-                            separators=["\n\n", "\n", ". ", ", ", " ", ""],
-                            add_start_index=True,
-                        )
-                        chunks = []
-                        for d in docs_to_split:
-                            for c in rc_splitter.split_documents([d]):
-                                # Añade metadatos útiles para trazabilidad
-                                c.metadata.setdefault("source", str(path))
-                                c.metadata.setdefault("filename", filename)
-                                chunks.append(c)
+def chunk_document(path: Path) -> list[Document]:
+    """Compatibility delegate for :meth:`DocumentLoader.chunk`."""
+    return DocumentLoader.chunk(path)
 
-                    # Index
-                    for idx, c in enumerate(chunks):
-                        c.metadata["chunk_id"] = idx
-                    output.extend(chunks)
 
-                except OSError:
-                    # Skip files that cannot be opened/read
-                    print(OSError)
-                    continue
-
-        return output
+def chunk_documents(paths: list[Path]) -> list[Document]:
+    """Compatibility delegate that chunks every path, preserving input order."""
+    return [chunk for path in paths for chunk in DocumentLoader.chunk(path)]
