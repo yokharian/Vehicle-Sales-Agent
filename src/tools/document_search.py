@@ -167,11 +167,16 @@ class DocumentChunk(_DocumentBase):
 def ensure_tables() -> None:
     """Create the document table if it does not exist yet.
 
-    On a fresh database, ``create_all`` already provisions ``content_hash`` from
-    the model. For pre-existing tables (e.g. the live Supabase instance) the
-    follow-up ``ALTER TABLE ... ADD COLUMN IF NOT EXISTS`` is a no-op once the
-    column is present, keeping the upgrade additive and idempotent.
+    The pgvector extension is enabled idempotently before ``create_all`` so the
+    ``VECTOR`` column type resolves on a fresh database. On the live Supabase
+    instance pgvector is already pre-enabled, so the statement is a no-op.
+    ``create_all`` already provisions ``content_hash`` on a fresh database; for
+    pre-existing tables (e.g. the live Supabase instance) the follow-up
+    ``ALTER TABLE ... ADD COLUMN IF NOT EXISTS`` is a no-op once the column is
+    present, keeping the upgrade additive and idempotent.
     """
+    with db_module.pgvector_engine.begin() as conn:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     _DocumentBase.metadata.create_all(db_module.pgvector_engine)
     with db_module.pgvector_engine.begin() as conn:
         conn.execute(
