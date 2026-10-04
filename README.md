@@ -10,7 +10,7 @@ An AI-powered vehicle sales assistant that chats with customers over WhatsApp: i
 
 - 🤖 **AI-Powered Agent**: LangGraph `create_agent` with structured tool calling
 - 📱 **WhatsApp Integration**: Bidirectional messaging via Twilio (TwiML webhooks)
-- 🔍 **Vehicle Catalog Search**: Fuzzy matching with typo tolerance (rapidfuzz) over SQLModel/PostgreSQL
+- 🔍 **Vehicle Catalog Search**: Fuzzy matching with typo tolerance (PostgreSQL fuzzystrmatch) over SQLModel/PostgreSQL
 - 📄 **Document Search**: Hybrid retrieval — BM25Plus sparse + pgvector dense, fused with `EnsembleRetriever`
 - 💰 **Financing Calculator**: Decimal-precise monthly payments and amortization schedules
 - 🌐 **FastAPI Server**: Production-ready webhook handling with health checks
@@ -111,7 +111,7 @@ All configuration is loaded with `pydantic-settings` from `.env` (see [`.env.exa
 ### Vehicle Search Flow
 1. User query received (WhatsApp)
 2. The agent calls the `catalog_search` tool with the raw user input
-3. Fuzzy matching normalizes make/model typos (rapidfuzz)
+3. Fuzzy matching normalizes make/model typos (PostgreSQL fuzzystrmatch)
 4. PostgreSQL query filters by price, features, mileage, make, and model
 5. Results ranked and formatted back to the user
 
