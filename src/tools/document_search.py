@@ -10,6 +10,7 @@ the agent cannot fabricate business facts.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 from pathlib import Path
@@ -188,23 +189,68 @@ def _row_document(row: DocumentChunk) -> Document:
     )
 
 
+def _chunk_rows(
+    chunks: list[Document], vectors: list, source: str | None = None
+) -> list[DocumentChunk]:
+    """Build ORM rows with model-qualified content hashes.
+
+    ``source`` overrides chunk metadata when the caller already knows the
+    single source (per-file upsert); whole-corpus reindex keeps per-chunk
+    metadata sources.
+    """
+    model_id = DocumentSearchSettings().resolved_embedding_model
+    return [
+        DocumentChunk(
+            source=chunk.metadata["source"] if source is None else source,
+            chunk_index=chunk.metadata["chunk_index"],
+            content=chunk.page_content,
+            embedding=vector,
+            content_hash=hashlib.sha256(f"{model_id}\x00{chunk.page_content}".encode()).hexdigest(),
+        )
+        for chunk, vector in zip(chunks, vectors, strict=True)
+    ]
+
+
 def reindex(chunks: list[Document], embeddings) -> int:
     """Replace the whole index with the given chunks, embedded and stored."""
     ensure_tables()
     vectors = embeddings.embed_documents([chunk.page_content for chunk in chunks]) if chunks else []
     with db_module.get_pgvector_session_sync() as session:
         session.execute(delete(DocumentChunk))
-        session.add_all(
-            DocumentChunk(
-                source=chunk.metadata["source"],
-                chunk_index=chunk.metadata["chunk_index"],
-                content=chunk.page_content,
-                embedding=vector,
-            )
-            for chunk, vector in zip(chunks, vectors, strict=True)
-        )
+        session.add_all(_chunk_rows(chunks, vectors))
         session.commit()
     return len(chunks)
+
+
+def upsert_document_chunks(source: str, chunks: list[Document], embeddings) -> int:
+    """Replace the stored chunks of one source in a single short transaction.
+
+    Embedding runs before the transaction opens so the write lock window stays
+    short. Returns the number of chunks stored for ``source``.
+    """
+    vectors = embeddings.embed_documents([chunk.page_content for chunk in chunks]) if chunks else []
+    with db_module.get_pgvector_session_sync() as session:
+        session.execute(delete(DocumentChunk).where(DocumentChunk.source == source))
+        session.add_all(_chunk_rows(chunks, vectors, source=source))
+        session.commit()
+    return len(chunks)
+
+
+def purge_removed_sources(active_sources: set[str]) -> int:
+    """Delete chunks for sources no longer present in ``active_sources``.
+
+    An empty active set purges every stored chunk. Returns the deleted count.
+    """
+    with db_module.get_pgvector_session_sync() as session:
+        if active_sources:
+            result = session.execute(
+                delete(DocumentChunk).where(DocumentChunk.source.not_in(active_sources))
+            )
+        else:
+            result = session.execute(delete(DocumentChunk))
+        deleted = result.rowcount
+        session.commit()
+    return deleted
 
 
 def load_chunks() -> list[Document]:
