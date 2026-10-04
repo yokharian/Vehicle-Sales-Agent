@@ -2,11 +2,14 @@
 """Knowledge Base Indexing Script.
 
 Indexes approved .md/.txt documents into PostgreSQL + pgvector
-(Parse -> Chunk -> Embed -> Full replace). Re-run after any change to the
-knowledge base or the embedding model.
+(Parse -> Chunk -> Embed -> per-source upsert). Re-run after any change to
+the knowledge base or the embedding model. Documents whose model-qualified
+chunk hashes match the stored ones are skipped unless --force is given; in
+directory mode, sources removed from the knowledge base are purged.
 """
 
 import argparse
+import hashlib
 import logging
 import sys
 from pathlib import Path
@@ -15,11 +18,16 @@ from pathlib import Path
 # Add src to path for imports
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
+import db.database as db_module
+from config import DocumentSearchSettings
 from tools.document_search import (
-    chunk_documents,
+    DocumentChunk,
+    chunk_document,
     discover_documents,
-    reindex,
+    ensure_tables,
+    purge_removed_sources,
     resolve_embeddings,
+    upsert_document_chunks,
 )
 
 
@@ -31,34 +39,102 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def _content_hash(model_id: str, page_content: str) -> str:
+    """Model-qualified chunk hash; must match the storage primitives."""
+    return hashlib.sha256(f"{model_id}\x00{page_content}".encode()).hexdigest()
+
+
+def _stored_chunk_hashes(source: str) -> list[tuple[int, str | None]]:
+    """Return the stored (chunk_index, content_hash) pairs of one source."""
+    with db_module.get_pgvector_session_sync() as session:
+        rows = (
+            session.query(DocumentChunk.chunk_index, DocumentChunk.content_hash)
+            .filter(DocumentChunk.source == source)
+            .order_by(DocumentChunk.chunk_index)
+            .all()
+        )
+    return [(row.chunk_index, row.content_hash) for row in rows]
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Index knowledge-base documents into pgvector.")
+    parser = argparse.ArgumentParser(
+        description="Index knowledge-base documents into pgvector.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Operator constraint: single writer per source. Do not run two\n"
+            "ingests of the same file simultaneously."
+        ),
+    )
     parser.add_argument(
         "--documents-dir",
         default="data/documents",
         help="Directory containing approved .md/.txt documents",
     )
+    parser.add_argument(
+        "--file",
+        default=None,
+        help="Index a single document path instead of every document in --documents-dir",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-embed and rewrite even when the stored content hashes match",
+    )
     args = parser.parse_args()
 
     try:
-        documents = discover_documents(args.documents_dir)
+        ensure_tables()
+
+        if args.file is not None:
+            single = Path(args.file)
+            documents = [single] if single.is_file() else []
+        else:
+            documents = discover_documents(args.documents_dir)
+
         if not documents:
+            if args.file is None:
+                # Dir mode: purge before the early return so an emptied
+                # knowledge base also clears the index.
+                purge_removed_sources(set())
             logger.warning(
-                "No supported documents found in %s; check the configuration.", args.documents_dir
+                "No supported documents found in %s; check the configuration.",
+                args.file if args.file is not None else args.documents_dir,
             )
             return 1
 
-        chunks = chunk_documents(documents)
-        if not chunks:
+        model_id = DocumentSearchSettings().resolved_embedding_model
+        embeddings = None
+        indexed_chunks = 0
+        skipped_files = 0
+        seen_chunks = 0
+        for path in documents:
+            chunks = chunk_document(path)
+            seen_chunks += len(chunks)
+            source = path.name
+            desired = [
+                (chunk.metadata["chunk_index"], _content_hash(model_id, chunk.page_content))
+                for chunk in chunks
+            ]
+            if not args.force and desired == _stored_chunk_hashes(source):
+                logger.info("Document %s unchanged, skipped (%d chunks).", source, len(chunks))
+                skipped_files += 1
+                continue
+            if embeddings is None:
+                embeddings = resolve_embeddings()
+            indexed_chunks += upsert_document_chunks(source, chunks, embeddings)
+
+        if args.file is None:
+            purge_removed_sources({path.name for path in documents})
+
+        if seen_chunks == 0:
             logger.warning("Documents found but no chunks were produced; check the documents.")
             return 1
 
-        embeddings = resolve_embeddings()
-        indexed = reindex(chunks, embeddings)
         logger.info(
-            "Indexed %d chunks from %d documents into PostgreSQL/pgvector.",
-            indexed,
+            "Indexed %d chunks from %d documents into PostgreSQL/pgvector (%d unchanged, skipped).",
+            indexed_chunks,
             len(documents),
+            skipped_files,
         )
     except Exception as exc:
         logger.error("Indexing failed: %s", type(exc).__name__)
