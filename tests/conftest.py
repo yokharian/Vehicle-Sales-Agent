@@ -60,6 +60,7 @@ def _postgres_with_pgvector():
 
     with db_module.engine.connect() as conn:
         conn.execute(sql_text("CREATE EXTENSION IF NOT EXISTS vector;"))
+        conn.execute(sql_text("CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;"))
         conn.commit()
 
     yield container
