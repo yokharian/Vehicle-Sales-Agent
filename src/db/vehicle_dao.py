@@ -4,11 +4,14 @@ Data access layer for vehicle operations.
 
 from typing import List, Optional
 
-from sqlalchemy import distinct
+from sqlalchemy import case, distinct, func, or_
 from sqlmodel import Session
 from sqlmodel import select
 
 from .database import Vehicle, get_session_sync
+
+
+FUZZY_MATCH_THRESHOLD = 60
 
 
 def get_makes(limit: int = 5) -> List[str]:
@@ -58,6 +61,86 @@ def get_models_by_make(make: str, limit: int = 5) -> List[str]:
         stmt = select(distinct(Vehicle.model)).where(Vehicle.make == make).limit(limit)
         results = session.exec(stmt).all()
         return list(results)
+
+
+def fuzzy_match_make(make_input: str) -> str | None:
+    """
+    Find the catalog make fuzzy-matching the user input.
+
+    Scoring runs entirely in PostgreSQL (fuzzystrmatch): candidates are the
+    distinct catalog makes; containment between candidate and input scores
+    90, otherwise the score is the normalized Levenshtein similarity
+    percentage. The best candidate at or above FUZZY_MATCH_THRESHOLD wins,
+    with alphabetical tie-break.
+
+    Args:
+        make_input: User input for the vehicle make
+
+    Returns:
+        Canonical catalog make, or None when the input is empty, exceeds
+        PostgreSQL's 255-byte levenshtein limit, or no candidate reaches
+        FUZZY_MATCH_THRESHOLD
+    """
+    query = make_input.strip().lower()
+    if not query or len(query.encode("utf-8")) > 255:
+        return None
+
+    inner = select(distinct(Vehicle.make).label("make")).subquery()
+    cand = func.lower(inner.c.make)
+    max_len = func.greatest(func.length(cand), len(query))
+    dist = func.levenshtein(cand, query)
+    contained = or_(func.strpos(cand, query) > 0, func.strpos(query, cand) > 0)
+    score = case((contained, 90), else_=(max_len - dist) * 100 / max_len)
+
+    with get_session_sync() as session:
+        stmt = (
+            select(inner.c.make)
+            .where(score >= FUZZY_MATCH_THRESHOLD)
+            .order_by(score.desc(), cand.asc())
+            .limit(1)
+        )
+        return session.exec(stmt).first()
+
+
+def fuzzy_match_model(model_input: str, make: str | None = None) -> str | None:
+    """
+    Find the catalog model fuzzy-matching the user input.
+
+    Scoring runs entirely in PostgreSQL (fuzzystrmatch), as in
+    fuzzy_match_make(). When make is given, candidates are restricted to
+    models of that make (scoping is case-insensitive).
+
+    Args:
+        model_input: User input for the vehicle model
+        make: Optional make to scope the candidate models (case-insensitive)
+
+    Returns:
+        Canonical catalog model, or None when the input is empty, exceeds
+        PostgreSQL's 255-byte levenshtein limit, or no candidate reaches
+        FUZZY_MATCH_THRESHOLD
+    """
+    query = model_input.strip().lower()
+    if not query or len(query.encode("utf-8")) > 255:
+        return None
+
+    inner_stmt = select(distinct(Vehicle.model).label("model"))
+    if make is not None:
+        inner_stmt = inner_stmt.where(func.lower(Vehicle.make) == make.strip().lower())
+    inner = inner_stmt.subquery()
+    cand = func.lower(inner.c.model)
+    max_len = func.greatest(func.length(cand), len(query))
+    dist = func.levenshtein(cand, query)
+    contained = or_(func.strpos(cand, query) > 0, func.strpos(query, cand) > 0)
+    score = case((contained, 90), else_=(max_len - dist) * 100 / max_len)
+
+    with get_session_sync() as session:
+        stmt = (
+            select(inner.c.model)
+            .where(score >= FUZZY_MATCH_THRESHOLD)
+            .order_by(score.desc(), cand.asc())
+            .limit(1)
+        )
+        return session.exec(stmt).first()
 
 
 def get_vehicle_by_id(db: Session, stock_id: int) -> Optional[Vehicle]:
