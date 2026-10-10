@@ -11,7 +11,7 @@ from pydantic import ValidationError
 
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
-from config import AgentSettings, DocumentSearchSettings
+from config import AgentSettings, DocumentSearchSettings, TwilioSettings
 
 
 class TestDocumentSearchSettings:
@@ -38,8 +38,8 @@ class TestDocumentSearchSettings:
         assert settings.bm25_weight == 0.5
 
     def test_environment_overrides(self, monkeypatch):
-        monkeypatch.setenv("DOCUMENT_EMBEDDING_PROVIDER", "gemini")
-        monkeypatch.setenv("DOCUMENT_EMBEDDING_MODEL", "models/text-embedding-004")
+        monkeypatch.setenv("DOCUMENT_EMBEDDING_PROVIDER", "openrouter")
+        monkeypatch.setenv("DOCUMENT_EMBEDDING_MODEL", "openai/text-embedding-3-large")
         monkeypatch.setenv("DOCUMENT_TOP_K", "10")
         monkeypatch.setenv("DOCUMENT_BM25_CANDIDATES", "8")
         monkeypatch.setenv("DOCUMENT_DENSE_CANDIDATES", "12")
@@ -47,8 +47,8 @@ class TestDocumentSearchSettings:
 
         settings = DocumentSearchSettings()
 
-        assert settings.embedding_provider == "gemini"
-        assert settings.embedding_model == "models/text-embedding-004"
+        assert settings.embedding_provider == "openrouter"
+        assert settings.embedding_model == "openai/text-embedding-3-large"
         assert settings.top_k == 10
         assert settings.bm25_candidates == 8
         assert settings.dense_candidates == 12
@@ -59,8 +59,8 @@ class TestDocumentSearchSettings:
         settings = DocumentSearchSettings(embedding_provider="openai")
         assert settings.resolved_embedding_model == "text-embedding-3-small"
 
-        gemini_settings = DocumentSearchSettings(embedding_provider="gemini")
-        assert gemini_settings.resolved_embedding_model == "models/text-embedding-004"
+        openrouter_settings = DocumentSearchSettings(embedding_provider="openrouter")
+        assert openrouter_settings.resolved_embedding_model == "openai/text-embedding-3-small"
 
     def test_openrouter_provider_uses_openrouter_style_model_default(self, monkeypatch):
         monkeypatch.delenv("DOCUMENT_EMBEDDING_MODEL", raising=False)
@@ -110,6 +110,40 @@ class TestAgentSettings:
         settings = AgentSettings()
 
         assert settings.default_model == "openai/gpt-5.6-luna"
+
+    def test_rejects_unknown_model_provider(self):
+        with pytest.raises(ValidationError):
+            AgentSettings(model_provider="cohere")
+
+    def test_debug_read_from_verbose_environment(self, monkeypatch):
+        monkeypatch.setenv("VERBOSE", "true")
+
+        assert AgentSettings().debug is True
+
+
+class TestTwilioSettings:
+    """Test Twilio settings loading."""
+
+    def test_reads_twilio_environment_variables(self, monkeypatch):
+        monkeypatch.setenv("TWILIO_ACCOUNT_SID", "AC123")
+        monkeypatch.setenv("TWILIO_AUTH_TOKEN", "token")
+        monkeypatch.setenv("TWILIO_WHATSAPP_NUMBER", "whatsapp:+1234567890")
+
+        settings = TwilioSettings()
+
+        assert settings.account_sid == "AC123"
+        assert settings.auth_token == "token"
+        assert settings.whatsapp_number == "whatsapp:+1234567890"
+
+    def test_defaults_to_none_without_environment(self, monkeypatch):
+        for name in ("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_WHATSAPP_NUMBER"):
+            monkeypatch.delenv(name, raising=False)
+
+        settings = TwilioSettings()
+
+        assert settings.account_sid is None
+        assert settings.auth_token is None
+        assert settings.whatsapp_number is None
 
     def test_resolved_embedding_model_honors_explicit_override(self):
         settings = DocumentSearchSettings(embedding_model="custom-model")

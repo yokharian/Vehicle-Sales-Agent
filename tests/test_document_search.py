@@ -179,14 +179,6 @@ class TestEmbeddingProviderConfig:
 
         assert type(embeddings).__name__ == "OpenAIEmbeddings"
 
-    def test_gemini_embeddings_resolved(self, monkeypatch):
-        monkeypatch.setenv("DOCUMENT_EMBEDDING_PROVIDER", "gemini")
-        monkeypatch.setenv("GOOGLE_API_KEY", "test-key-for-testing")
-
-        embeddings = resolve_embeddings()
-
-        assert type(embeddings).__name__ == "GoogleGenerativeAIEmbeddings"
-
     def test_openrouter_embeddings_resolved(self, monkeypatch):
         monkeypatch.setenv("DOCUMENT_EMBEDDING_PROVIDER", "openrouter")
         monkeypatch.delenv("DOCUMENT_EMBEDDING_MODEL", raising=False)

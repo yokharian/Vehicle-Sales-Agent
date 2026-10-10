@@ -21,7 +21,6 @@ from langchain_community.retrievers import BM25Retriever
 from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
 from langchain_core.tools import tool
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import (
     MarkdownHeaderTextSplitter,
@@ -131,8 +130,6 @@ def resolve_embeddings():
     """Build the configured embedding model for indexing and querying."""
     settings = DocumentSearchSettings()
     model = settings.resolved_embedding_model
-    if settings.embedding_provider == "openai":
-        return OpenAIEmbeddings(model=model)
     if settings.embedding_provider == "openrouter":
         if not settings.openrouter_api_key:
             raise ValueError("OPENROUTER_API_KEY is not set")
@@ -141,7 +138,9 @@ def resolve_embeddings():
             base_url=OPENROUTER_BASE_URL,
             api_key=settings.openrouter_api_key,
         )
-    return GoogleGenerativeAIEmbeddings(model=model)
+    if not settings.openai_api_key:
+        raise ValueError("OPENAI_API_KEY is not set")
+    return OpenAIEmbeddings(model=model, api_key=settings.openai_api_key)
 
 
 class _DocumentBase(DeclarativeBase):
