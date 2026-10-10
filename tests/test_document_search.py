@@ -16,6 +16,7 @@ from sqlalchemy import delete
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 import db.database as db_module
+from config import DocumentSearchSettings
 from tools.document_search import (
     CHUNK_OVERLAP,
     CHUNK_SIZE,
@@ -23,7 +24,6 @@ from tools.document_search import (
     DocumentChunkResult,
     DocumentSearchError,
     DocumentSearchInput,
-    HybridConfig,
     build_bm25_retriever,
     build_hybrid_retriever,
     chunk_document,
@@ -35,8 +35,6 @@ from tools.document_search import (
     load_chunks,
     reindex,
     resolve_embeddings,
-    resolve_hybrid_config,
-    resolve_provider,
 )
 
 
@@ -173,17 +171,6 @@ class TestChunking:
 class TestEmbeddingProviderConfig:
     """Test provider selection through configuration."""
 
-    def test_default_provider_is_openai(self, monkeypatch):
-        monkeypatch.delenv("DOCUMENT_EMBEDDING_PROVIDER", raising=False)
-
-        assert resolve_provider() == "openai"
-
-    def test_invalid_provider_rejected(self, monkeypatch):
-        monkeypatch.setenv("DOCUMENT_EMBEDDING_PROVIDER", "cohere")
-
-        with pytest.raises(ValueError, match="provider"):
-            resolve_provider()
-
     def test_openai_embeddings_resolved(self, monkeypatch):
         monkeypatch.delenv("DOCUMENT_EMBEDDING_PROVIDER", raising=False)
         monkeypatch.setenv("OPENAI_API_KEY", "test-key-for-testing")
@@ -200,46 +187,23 @@ class TestEmbeddingProviderConfig:
 
         assert type(embeddings).__name__ == "GoogleGenerativeAIEmbeddings"
 
+    def test_openrouter_embeddings_resolved(self, monkeypatch):
+        monkeypatch.setenv("DOCUMENT_EMBEDDING_PROVIDER", "openrouter")
+        monkeypatch.delenv("DOCUMENT_EMBEDDING_MODEL", raising=False)
+        monkeypatch.setenv("OPENROUTER_API_KEY", "test-openrouter-key")
 
-class TestHybridConfig:
-    """Test retrieval parameter configuration."""
+        embeddings = resolve_embeddings()
 
-    def test_poc_defaults(self, monkeypatch):
-        for name in (
-            "DOCUMENT_TOP_K",
-            "DOCUMENT_BM25_CANDIDATES",
-            "DOCUMENT_DENSE_CANDIDATES",
-            "DOCUMENT_BM25_WEIGHT",
-        ):
-            monkeypatch.delenv(name, raising=False)
+        assert type(embeddings).__name__ == "OpenAIEmbeddings"
+        assert embeddings.openai_api_base == "https://openrouter.ai/api/v1"
+        assert embeddings.model == "openai/text-embedding-3-small"
 
-        config = resolve_hybrid_config()
+    def test_openrouter_requires_api_key(self, monkeypatch):
+        monkeypatch.setenv("DOCUMENT_EMBEDDING_PROVIDER", "openrouter")
+        monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
 
-        assert config.top_k == 6
-        assert config.bm25_candidates == 6
-        assert config.dense_candidates == 6
-        assert config.bm25_weight == 0.5
-        assert config.dense_weight == 0.5
-
-    def test_environment_overrides(self, monkeypatch):
-        monkeypatch.setenv("DOCUMENT_TOP_K", "12")
-        monkeypatch.setenv("DOCUMENT_BM25_CANDIDATES", "12")
-        monkeypatch.setenv("DOCUMENT_DENSE_CANDIDATES", "8")
-        monkeypatch.setenv("DOCUMENT_BM25_WEIGHT", "0.7")
-
-        config = resolve_hybrid_config()
-
-        assert config.top_k == 12
-        assert config.bm25_candidates == 12
-        assert config.dense_candidates == 8
-        assert config.bm25_weight == 0.7
-        assert round(config.dense_weight, 2) == 0.3
-
-    def test_out_of_range_environment_rejected(self, monkeypatch):
-        monkeypatch.setenv("DOCUMENT_TOP_K", "0")
-
-        with pytest.raises(ValidationError):
-            resolve_hybrid_config()
+        with pytest.raises(ValueError, match="OPENROUTER_API_KEY"):
+            resolve_embeddings()
 
 
 @pytest.mark.usefixtures("document_index")
@@ -314,21 +278,25 @@ class TestHybridRetrieval:
 
     def test_hybrid_returns_corpus_documents_only(self, document_index):
         chunks = load_chunks()
-        config = HybridConfig(top_k=4, bm25_candidates=3, dense_candidates=3, bm25_weight=0.5)
-        retriever = build_hybrid_retriever(chunks, document_index, config)
+        settings = DocumentSearchSettings(
+            top_k=4, bm25_candidates=3, dense_candidates=3, bm25_weight=0.5
+        )
+        retriever = build_hybrid_retriever(chunks, document_index, settings)
 
         results = retriever.invoke("¿Qué documentos necesito para comprar?")
 
         assert results
-        assert len(results) <= config.bm25_candidates + config.dense_candidates
+        assert len(results) <= settings.bm25_candidates + settings.dense_candidates
         expected = {(doc.metadata["source"], doc.metadata["chunk_index"]) for doc in chunks}
         for document in results:
             assert (document.metadata["source"], document.metadata["chunk_index"]) in expected
 
     def test_hybrid_ordering_is_deterministic(self, document_index):
         chunks = load_chunks()
-        config = HybridConfig(top_k=4, bm25_candidates=3, dense_candidates=3, bm25_weight=0.5)
-        retriever = build_hybrid_retriever(chunks, document_index, config)
+        settings = DocumentSearchSettings(
+            top_k=4, bm25_candidates=3, dense_candidates=3, bm25_weight=0.5
+        )
+        retriever = build_hybrid_retriever(chunks, document_index, settings)
 
         first = retriever.invoke("tasa de interés")
         second = retriever.invoke("tasa de interés")
