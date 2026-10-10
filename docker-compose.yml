@@ -1,0 +1,52 @@
+services:
+  commercial-agent:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      # Database configuration
+      - DATABASE_URL=postgresql://postgres:password@db:5432/commercial_agent
+
+      # Agent chat model
+      - MODEL_PROVIDER=${MODEL_PROVIDER:-openrouter}
+      - DEFAULT_MODEL=${DEFAULT_MODEL:-gpt-5.6-luna}
+
+      # API keys (set these in your .env file)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+
+      # Document search embeddings
+      - DOCUMENT_EMBEDDING_PROVIDER=${DOCUMENT_EMBEDDING_PROVIDER:-openrouter}
+      - DOCUMENT_EMBEDDING_MODEL=${DOCUMENT_EMBEDDING_MODEL:-openai/text-embedding-3-small}
+
+      # Twilio configuration (set these in your .env file)
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_WHATSAPP_NUMBER=${TWILIO_WHATSAPP_NUMBER}
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      - POSTGRES_DB=commercial_agent
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
