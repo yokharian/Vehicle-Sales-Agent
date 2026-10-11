@@ -6,6 +6,7 @@ import importlib.util
 import logging
 import os
 import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -517,3 +518,47 @@ class TestGranularIngest:
         assert module.main() == 1
         assert len(embed_calls) == after_first_run
         assert load_chunks() == before_missing
+
+    @pytest.mark.usefixtures("document_index")
+    def test_concurrent_ingest_and_reads(self):
+        NEW_CHUNKS = [
+            Document(
+                page_content="Kavak ofrece garantía mecánica de 3 meses o 5,000 kilómetros en autos certificados.",
+                metadata={"source": "kavak.md", "chunk_index": 0},
+            ),
+            Document(
+                page_content="La garantía de Kavak cubre motor y transmisión; se agenda servicio en la app.",
+                metadata={"source": "kavak.md", "chunk_index": 1},
+            ),
+            Document(
+                page_content="Cada auto de Kavak pasa una inspección de 200 puntos antes de publicarse a la venta.",
+                metadata={"source": "kavak.md", "chunk_index": 2},
+            ),
+        ]
+        phase_sizes = {len(SEED_CHUNKS), len(SEED_CHUNKS) + len(NEW_CHUNKS), len(NEW_CHUNKS)}
+
+        writer_errors: list[BaseException] = []
+
+        def _writer() -> None:
+            try:
+                upsert_document_chunks("kavak.md", NEW_CHUNKS, FAKE_EMBEDDINGS)
+                purge_removed_sources({"kavak.md"})
+            except BaseException as exc:
+                writer_errors.append(exc)
+
+        writer = threading.Thread(target=_writer, daemon=True)
+        writer.start()
+
+        for _ in range(20):
+            rows = load_chunks()
+            assert len(rows) in phase_sizes
+            assert all(row.page_content for row in rows)
+            found = dense_search("garantía", FAKE_EMBEDDINGS, 3)
+            assert all(doc.page_content for doc in found)
+
+        writer.join()
+        assert not writer_errors
+
+        final_rows = load_chunks()
+        assert len(final_rows) == len(NEW_CHUNKS)
+        assert {row.metadata["source"] for row in final_rows} == {"kavak.md"}
