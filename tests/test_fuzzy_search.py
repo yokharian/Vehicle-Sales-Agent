@@ -6,9 +6,12 @@ import sys
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+import pytest
+
 
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
+from db.vehicle_dao import fuzzy_match_make, fuzzy_match_model
 from tools.catalog_search import (
     catalog_search_tool,
     fuzzy_search_make,
@@ -346,3 +349,71 @@ class TestFuzzySearch:
                     f"Search failed after too long ({execution_time:.3f}s) for {scenario['name']}"
                 )
                 assert "Error" in str(e) or "Exception" in str(e), f"Unexpected error type: {e}"
+
+
+class TestFuzzyMatchDao:
+    """Test DAO fuzzy matching against the seeded PostgreSQL catalog (no mocks)."""
+
+    def test_exact_match(self):
+        assert fuzzy_match_make("toyota") == "toyota"
+
+    @pytest.mark.parametrize("make_input", ["Toyota", "TOYOTA"])
+    def test_case_insensitive_match(self, make_input):
+        assert fuzzy_match_make(make_input) == "toyota"
+
+    @pytest.mark.parametrize(
+        "make_input, expected",
+        [
+            ("toyta", "toyota"),
+            ("hnda", "honda"),
+            ("hond", "honda"),
+        ],
+    )
+    def test_make_typo_match(self, make_input, expected):
+        assert fuzzy_match_make(make_input) == expected
+
+    @pytest.mark.parametrize(
+        "model_input, make, expected",
+        [
+            ("camri", "toyota", "camry"),
+            ("cvic", None, "civic"),
+        ],
+    )
+    def test_model_typo_match(self, model_input, make, expected):
+        assert fuzzy_match_model(model_input, make=make) == expected
+
+    @pytest.mark.parametrize(
+        "make_input, expected",
+        [
+            ("mercedes", "mercedes benz"),
+            ("bm", "bmw"),
+            ("onda", "honda"),
+            ("benz", "mercedes benz"),
+        ],
+    )
+    def test_containment_match(self, make_input, expected):
+        assert fuzzy_match_make(make_input) == expected
+
+    def test_sixty_percent_band_match(self):
+        # "bmd" -> "bmw" scores 66 (2/3 of the max length): inside the
+        # intended 60-69.9 band, accepted only by the new threshold.
+        assert fuzzy_match_make("bmd") == "bmw"
+
+    @pytest.mark.parametrize("make_input", ["mercdes", "vw", "xyz"])
+    def test_rejected_flip(self, make_input):
+        assert fuzzy_match_make(make_input) is None
+
+    @pytest.mark.parametrize("make_input", ["", "   "])
+    def test_empty_input(self, make_input):
+        assert fuzzy_match_make(make_input) is None
+
+    def test_oversize_ascii_input(self):
+        # 256 bytes > PostgreSQL's 255-byte levenshtein argument cap.
+        assert fuzzy_match_make("a" * 256) is None
+
+    def test_oversize_unicode_input(self):
+        # 100 CJK chars = 300 UTF-8 bytes > the 255-byte cap.
+        assert fuzzy_match_make("\u4e00" * 100) is None
+
+    def test_model_scoped_to_make(self):
+        assert fuzzy_match_model("corolla", make="honda") is None
