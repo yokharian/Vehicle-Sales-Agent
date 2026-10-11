@@ -333,3 +333,6 @@ cython_debug/
 # OhMyOpenCode session state
 .omo/
 
+# LangGraph dev local persistence
+.langgraph_api/
+
