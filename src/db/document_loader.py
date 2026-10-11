@@ -1,11 +1,8 @@
 """
 Loading and chunking of approved knowledge-base documents (``.md`` / ``.txt``).
 
-Canonical implementation owned by the :class:`DocumentLoader` class. The
-module-level functions (``discover_documents``, ``chunk_document``,
-``chunk_documents``) are thin compatibility delegates that re-export the same
-behavior, so that ``tools.document_search`` and its re-exports keep working
-unchanged.
+The :class:`DocumentLoader` class is the single API for loading and chunking
+approved knowledge-base documents.
 """
 
 from __future__ import annotations
@@ -75,18 +72,3 @@ class DocumentLoader:
         for chunk_index, chunk in enumerate(chunks):
             chunk.metadata["chunk_index"] = chunk_index
         return chunks
-
-
-def discover_documents(documents_dir: str | Path) -> list[Path]:
-    """Compatibility delegate for :meth:`DocumentLoader.discover`."""
-    return DocumentLoader(documents_dir).discover()
-
-
-def chunk_document(path: Path) -> list[Document]:
-    """Compatibility delegate for :meth:`DocumentLoader.chunk`."""
-    return DocumentLoader.chunk(path)
-
-
-def chunk_documents(paths: list[Path]) -> list[Document]:
-    """Compatibility delegate that chunks every path, preserving input order."""
-    return [chunk for path in paths for chunk in DocumentLoader.chunk(path)]

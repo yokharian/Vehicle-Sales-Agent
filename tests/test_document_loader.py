@@ -2,8 +2,7 @@
 Tests for the canonical ``DocumentLoader`` in ``db.document_loader``.
 
 These tests are intentionally pure (no Docker, no testcontainers): they exercise
-file discovery and chunking on a ``tmp_path`` and verify the module-level
-delegates are behaviorally equivalent to the class.
+file discovery and chunking on a ``tmp_path``.
 """
 
 import sys
@@ -19,14 +18,11 @@ from db.document_loader import (
     CHUNK_SIZE,
     SUPPORTED_SUFFIXES,
     DocumentLoader,
-    chunk_document,
-    chunk_documents,
-    discover_documents,
 )
 
 
 class TestDiscovery:
-    """Document discovery rules via the ``DocumentLoader`` class and delegate."""
+    """Document discovery rules via the ``DocumentLoader`` class."""
 
     def test_discovers_supported_files_sorted_and_skips_hidden(self, tmp_path):
         (tmp_path / "a.md").write_text("# titulo", encoding="utf-8")
@@ -41,7 +37,6 @@ class TestDiscovery:
 
     def test_missing_directory_returns_empty(self, tmp_path):
         assert DocumentLoader(tmp_path / "does-not-exist").discover() == []
-        assert discover_documents(tmp_path / "does-not-exist") == []
 
 
 class TestChunking:
@@ -83,32 +78,6 @@ class TestRobustness:
         chunks = DocumentLoader.chunk(path)
 
         assert chunks == []
-
-
-class TestDelegatesEquivalentToClass:
-    """The module-level functions must delegate to the canonical class."""
-
-    def test_chunk_document_matches_class(self, tmp_path):
-        path = tmp_path / "doc.md"
-        path.write_text("# Title\n\nContenido de prueba. " * 50, encoding="utf-8")
-
-        assert chunk_document(path) == DocumentLoader.chunk(path)
-
-    def test_chunk_documents_matches_class_concatenation(self, tmp_path):
-        first = tmp_path / "a.txt"
-        first.write_text("primer documento " * 10, encoding="utf-8")
-        second = tmp_path / "b.md"
-        second.write_text("# Segundo\n\nContenido del segundo. " * 10, encoding="utf-8")
-
-        assert chunk_documents([first, second]) == DocumentLoader.chunk(first) + DocumentLoader.chunk(
-            second
-        )
-
-    def test_discover_documents_matches_class(self, tmp_path):
-        (tmp_path / "a.md").write_text("# a", encoding="utf-8")
-        (tmp_path / "b.txt").write_text("b", encoding="utf-8")
-
-        assert discover_documents(tmp_path) == DocumentLoader(tmp_path).discover()
 
 
 class TestConstantsContract:

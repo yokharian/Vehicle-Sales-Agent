@@ -6,9 +6,6 @@ pgvector (chunking, embedding, storage), and retrieved with a hybrid BM25 +
 dense ensemble. The tool returns evidence passages with source metadata; it
 never generates answers, and empty or failed retrieval is reported as such so
 the agent cannot fabricate business facts.
-
-Document loading and chunking live in ``db.document_loader``; this module
-re-exports those names for backward compatibility.
 """
 
 from __future__ import annotations
@@ -32,20 +29,9 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 import db.database as db_module
 from config import OPENROUTER_BASE_URL, DocumentSearchSettings
-from db.document_loader import (
-    CHUNK_OVERLAP,
-    CHUNK_SIZE,
-    SUPPORTED_SUFFIXES,
-    chunk_document,
-    chunk_documents,
-    discover_documents,
-)
 
 
 __all__ = [
-    "CHUNK_OVERLAP",
-    "CHUNK_SIZE",
-    "SUPPORTED_SUFFIXES",
     "DenseRetriever",
     "DocumentChunk",
     "DocumentChunkMetadata",
@@ -54,10 +40,7 @@ __all__ = [
     "DocumentSearchInput",
     "build_bm25_retriever",
     "build_hybrid_retriever",
-    "chunk_document",
-    "chunk_documents",
     "dense_search",
-    "discover_documents",
     "document_search_tool",
     "ensure_tables",
     "load_chunks",
