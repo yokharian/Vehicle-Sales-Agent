@@ -255,7 +255,6 @@ def purge_removed_sources(active_sources: set[str]) -> int:
 
 def load_chunks() -> list[Document]:
     """Load every stored chunk in deterministic source order."""
-    ensure_tables()
     with db_module.get_pgvector_session_sync() as session:
         rows = (
             session.query(DocumentChunk)
