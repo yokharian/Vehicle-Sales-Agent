@@ -7,9 +7,7 @@ from sqlmodel import Field, Session, SQLModel, create_engine
 
 
 # Relational for CRUD/tables
-POSTGRES_URI = (
-    os.environ.get("POSTGRES_URI") or os.environ.get("DATABASE_URI")
-)
+POSTGRES_URI = os.environ.get("POSTGRES_URI") or os.environ.get("DATABASE_URI")
 
 # Vector reads PGVECTOR_URI
 PGVECTOR_URI = os.environ.get("PGVECTOR_URI") or POSTGRES_URI

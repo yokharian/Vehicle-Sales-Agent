@@ -88,15 +88,11 @@ def get_vehicles_by_make_model(db: Session, make: str, model: str) -> List[Vehic
     Returns:
         List of Vehicle objects
     """
-    statement = select(Vehicle).where(
-        Vehicle.make == make.lower(), Vehicle.model == model.lower()
-    )
+    statement = select(Vehicle).where(Vehicle.make == make.lower(), Vehicle.model == model.lower())
     return list(db.exec(statement))
 
 
-def get_vehicles_by_price_range(
-    db: Session, min_price: float, max_price: float
-) -> List[Vehicle]:
+def get_vehicles_by_price_range(db: Session, min_price: float, max_price: float) -> List[Vehicle]:
     """
     Get vehicles within a price range.
 
@@ -108,15 +104,11 @@ def get_vehicles_by_price_range(
     Returns:
         List of Vehicle objects
     """
-    statement = select(Vehicle).where(
-        Vehicle.price >= min_price, Vehicle.price <= max_price
-    )
+    statement = select(Vehicle).where(Vehicle.price >= min_price, Vehicle.price <= max_price)
     return list(db.exec(statement))
 
 
-def get_vehicles_by_year_range(
-    db: Session, min_year: int, max_year: int
-) -> List[Vehicle]:
+def get_vehicles_by_year_range(db: Session, min_year: int, max_year: int) -> List[Vehicle]:
     """
     Get vehicles within a year range.
 
@@ -128,9 +120,7 @@ def get_vehicles_by_year_range(
     Returns:
         List of Vehicle objects
     """
-    statement = select(Vehicle).where(
-        Vehicle.year >= min_year, Vehicle.year <= max_year
-    )
+    statement = select(Vehicle).where(Vehicle.year >= min_year, Vehicle.year <= max_year)
     return list(db.exec(statement))
 
 

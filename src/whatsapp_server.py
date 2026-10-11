@@ -95,9 +95,7 @@ class WhatsAppVehicleAssistant:
             if len(response) > 1600:  # WhatsApp has message limits
                 response = response[:1600] + "...\n\n[Respuesta truncada]"
 
-            logger.info(
-                f"Sending WhatsApp response to {from_number}: {response[:100]}..."
-            )
+            logger.info(f"Sending WhatsApp response to {from_number}: {response[:100]}...")
             return response
 
         except Exception as e:
@@ -176,9 +174,7 @@ def create_fastapi_app() -> FastAPI:
             if not assistant:
                 assistant = WhatsAppVehicleAssistant()
 
-            result = assistant.send_whatsapp_message(
-                request_data.to_number, request_data.message
-            )
+            result = assistant.send_whatsapp_message(request_data.to_number, request_data.message)
             return result
 
         except Exception as e:
@@ -218,9 +214,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="WhatsApp Vehicle Assistant Server")
 
     parser.add_argument("--host", default="0.0.0.0", help="Host for WhatsApp server")
-    parser.add_argument(
-        "--port", type=int, default=5000, help="Port for WhatsApp server"
-    )
+    parser.add_argument("--port", type=int, default=5000, help="Port for WhatsApp server")
     parser.add_argument("--debug", action="store_true", help="Enable debug mode")
 
     args = parser.parse_args()
