@@ -20,10 +20,9 @@ sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 import db.database as db_module
 from config import DocumentSearchSettings
+from db.document_loader import DocumentLoader
 from tools.document_search import (
     DocumentChunk,
-    chunk_document,
-    discover_documents,
     ensure_tables,
     purge_removed_sources,
     resolve_embeddings,
@@ -84,12 +83,13 @@ def main() -> int:
 
     try:
         ensure_tables()
+        loader = DocumentLoader(args.documents_dir)
 
         if args.file is not None:
             single = Path(args.file)
             documents = [single] if single.is_file() else []
         else:
-            documents = discover_documents(args.documents_dir)
+            documents = loader.discover()
 
         if not documents:
             if args.file is None:
@@ -108,7 +108,7 @@ def main() -> int:
         skipped_files = 0
         seen_chunks = 0
         for path in documents:
-            chunks = chunk_document(path)
+            chunks = loader.chunk(path)
             seen_chunks += len(chunks)
             source = path.name
             desired = [
