@@ -6,6 +6,9 @@ pgvector (chunking, embedding, storage), and retrieved with a hybrid BM25 +
 dense ensemble. The tool returns evidence passages with source metadata; it
 never generates answers, and empty or failed retrieval is reported as such so
 the agent cannot fabricate business facts.
+
+Document loading and chunking live in ``db.document_loader``; this module
+re-exports those names for backward compatibility.
 """
 
 from __future__ import annotations
@@ -13,7 +16,6 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import rank_bm25
@@ -23,10 +25,6 @@ from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
 from langchain_core.tools import tool
 from langchain_openai import OpenAIEmbeddings
-from langchain_text_splitters import (
-    MarkdownHeaderTextSplitter,
-    RecursiveCharacterTextSplitter,
-)
 from pgvector.sqlalchemy import Vector
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Text, UniqueConstraint, delete, text
@@ -34,17 +32,46 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 import db.database as db_module
 from config import OPENROUTER_BASE_URL, DocumentSearchSettings
+from db.document_loader import (
+    CHUNK_OVERLAP,
+    CHUNK_SIZE,
+    SUPPORTED_SUFFIXES,
+    chunk_document,
+    chunk_documents,
+    discover_documents,
+)
+
+
+__all__ = [
+    "CHUNK_OVERLAP",
+    "CHUNK_SIZE",
+    "SUPPORTED_SUFFIXES",
+    "DenseRetriever",
+    "DocumentChunk",
+    "DocumentChunkMetadata",
+    "DocumentChunkResult",
+    "DocumentSearchError",
+    "DocumentSearchInput",
+    "build_bm25_retriever",
+    "build_hybrid_retriever",
+    "chunk_document",
+    "chunk_documents",
+    "dense_search",
+    "discover_documents",
+    "document_search_tool",
+    "ensure_tables",
+    "load_chunks",
+    "purge_removed_sources",
+    "reindex",
+    "resolve_embeddings",
+    "upsert_document_chunks",
+]
 
 
 if TYPE_CHECKING:
     from langchain_core.callbacks import CallbackManagerForRetrieverRun
 
 logger = logging.getLogger(__name__)
-
-SUPPORTED_SUFFIXES = (".md", ".txt")
-CHUNK_SIZE = 500
-CHUNK_OVERLAP = 100
-_MARKDOWN_HEADERS = [("#", "h1"), ("##", "h2"), ("###", "h3")]
 
 MIN_K = 1
 MAX_K = 20
@@ -78,53 +105,6 @@ class DocumentChunkResult(BaseModel):
 
     content: str
     metadata: DocumentChunkMetadata
-
-
-def discover_documents(documents_dir: str | Path) -> list[Path]:
-    """List supported, non-hidden documents in sorted order."""
-    directory = Path(documents_dir)
-    if not directory.is_dir():
-        return []
-    return sorted(
-        path
-        for path in directory.iterdir()
-        if path.is_file()
-        and path.suffix.lower() in SUPPORTED_SUFFIXES
-        and not path.name.startswith(".")
-    )
-
-
-def chunk_document(path: Path) -> list[Document]:
-    """Read one document and split it into indexed chunks."""
-    try:
-        text = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError) as exc:
-        logger.warning("Skipping unreadable document %s: %s", path.name, type(exc).__name__)
-        return []
-
-    if path.suffix.lower() == ".md":
-        sections = MarkdownHeaderTextSplitter(
-            headers_to_split_on=_MARKDOWN_HEADERS,
-            strip_headers=False,
-        ).split_text(text)
-        section_texts = [section.page_content for section in sections]
-    else:
-        section_texts = [text]
-
-    splitter = RecursiveCharacterTextSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP)
-    chunks = [
-        Document(page_content=piece, metadata={"source": path.name})
-        for section in section_texts
-        for piece in splitter.split_text(section)
-    ]
-    for chunk_index, chunk in enumerate(chunks):
-        chunk.metadata["chunk_index"] = chunk_index
-    return chunks
-
-
-def chunk_documents(paths: list[Path]) -> list[Document]:
-    """Chunk every discovered document, keeping deterministic source order."""
-    return [chunk for path in paths for chunk in chunk_document(path)]
 
 
 def resolve_embeddings():
