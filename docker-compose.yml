@@ -1,51 +1,68 @@
+# Full self-hosted deployment - WEB.
 services:
-  commercial-agent:
+  langgraph-api:
     build: .
     ports:
-      - "5000:5000"
+      - "2024:8000"
     environment:
-      # Database configuration
-      - DATABASE_URL=postgresql://postgres:password@db:5432/commercial_agent
+      # Vehicle catalog + knowledge base (pgvector)
+      - DATABASE_URI=postgres://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
+      - PGVECTOR_URI=postgres://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
+      # LangGraph run queue
+      - REDIS_URI=redis://langgraph-redis:6379
 
       # Agent chat model
-      - MODEL_PROVIDER=${MODEL_PROVIDER:-openrouter}
-      - DEFAULT_MODEL=${DEFAULT_MODEL:-gpt-5.6-luna}
-
-      # API keys (set these in your .env file)
+      - MODEL_PROVIDER=${MODEL_PROVIDER}
+      - DEFAULT_MODEL=${DEFAULT_MODEL}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
 
       # Document search embeddings
-      - DOCUMENT_EMBEDDING_PROVIDER=${DOCUMENT_EMBEDDING_PROVIDER:-openrouter}
-      - DOCUMENT_EMBEDDING_MODEL=${DOCUMENT_EMBEDDING_MODEL:-openai/text-embedding-3-small}
+      - DOCUMENT_OPENAI_API_KEY=${DOCUMENT_OPENAI_API_KEY}
+      - DOCUMENT_OPENROUTER_API_KEY=${DOCUMENT_OPENROUTER_API_KEY}
+      - DOCUMENT_EMBEDDING_PROVIDER=${DOCUMENT_EMBEDDING_PROVIDER}
+      - DOCUMENT_EMBEDDING_MODEL=${DOCUMENT_EMBEDDING_MODEL}
 
-      # Twilio configuration (set these in your .env file)
-      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
-      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
-      - TWILIO_WHATSAPP_NUMBER=${TWILIO_WHATSAPP_NUMBER}
+      # Optional Langfuse Tracing
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_BASE_URL=${LANGFUSE_BASE_URL}
+      - LANGFUSE_TRACING_ENVIRONMENT=${LANGFUSE_TRACING_ENVIRONMENT}
+
+      # Optional Supabase JWT auth (unset = server runs open)
+      - SUPABASE_URL=${SUPABASE_URL}
     volumes:
-      - ./data:/app/data
+      - ./data:/deps/vehicle-sales-agent/data
     depends_on:
-      - db
+      - langgraph-postgres
+      - langgraph-redis
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
 
-  db:
+  langgraph-postgres:
     image: pgvector/pgvector:pg16
     environment:
-      - POSTGRES_DB=commercial_agent
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: langgraph
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d langgraph"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  langgraph-redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
 volumes:
   postgres_data:
