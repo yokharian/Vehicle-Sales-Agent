@@ -18,9 +18,9 @@ from langfuse.langchain import CallbackHandler
 sys.path.append(str(Path(__file__).parent))
 
 from config import OPENROUTER_BASE_URL, AgentSettings
-from tools.catalog_search import catalog_search_tool
-from tools.document_search import document_search_tool
-from tools.financing_calculator import financing_calculator_tool
+# from tools.catalog_search import catalog_search_tool
+# from tools.document_search import document_search_tool
+# from tools.financing_calculator import financing_calculator_tool
 
 SYSTEM_PROMPT = """Eres un asistente virtual especializado en búsqueda de vehículos y atención al cliente para una empresa automotriz que actúa como agente comercial de Kavak. Asistes al cliente en su búsqueda y respondes preguntas generales sobre la empresa, siempre usando solo las herramientas disponibles.
 
@@ -79,12 +79,12 @@ def build_chat_model(model_name: str, session_id: str = "") -> ChatOpenAI:
 
 standard_model = build_chat_model(SETTINGS.default_model)
 
-tools = [catalog_search_tool, document_search_tool, financing_calculator_tool]
+# tools = [catalog_search_tool, document_search_tool, financing_calculator_tool]
 
 agent = create_agent(
     name="vehicle-sales-agent",
     model=standard_model,
-    tools=tools,
+    # tools=tools,
     system_prompt=SYSTEM_PROMPT,
     debug=SETTINGS.debug,
 ).with_config({"callbacks": [langfuse_handler]})
