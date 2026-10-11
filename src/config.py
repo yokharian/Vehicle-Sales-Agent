@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,6 +22,37 @@ DEFAULT_EMBEDDING_MODELS: dict[str, str] = {
     "openai": "text-embedding-3-small",
     "openrouter": "openai/text-embedding-3-small",
 }
+
+
+class DatabaseSettings(BaseSettings):
+    """Database connection settings (relational + pgvector vector store).
+
+    Relational reads POSTGRES_URI, falling back to the legacy DATABASE_URI so
+    container deployments keep working. The vector database reads PGVECTOR_URI
+    and defaults to the relational URI when unset (single-database setups).
+    """
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    postgres_uri: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("POSTGRES_URI", "DATABASE_URI"),
+        description="Relational PostgreSQL connection (CRUD, tables)",
+    )
+    pgvector_uri: str | None = Field(
+        default=None,
+        validation_alias="PGVECTOR_URI",
+        description="pgvector connection; defaults to postgres_uri when unset",
+    )
+    db_echo: bool = Field(
+        default=False,
+        validation_alias="DB_ECHO",
+        description="Echo SQL statements emitted by the database engines",
+    )
 
 
 class DocumentSearchSettings(BaseSettings):

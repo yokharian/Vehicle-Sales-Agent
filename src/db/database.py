@@ -1,27 +1,32 @@
-import os
 from collections.abc import Generator
 from typing import Any
 
 from sqlalchemy import JSON, Column, Engine
 from sqlmodel import Field, Session, SQLModel, create_engine
 
+from config import DatabaseSettings
 
-# Relational for CRUD/tables
-POSTGRES_URI = os.environ.get("POSTGRES_URI") or os.environ.get("DATABASE_URI")
 
-# Vector reads PGVECTOR_URI
-PGVECTOR_URI = os.environ.get("PGVECTOR_URI") or POSTGRES_URI
+DB_SETTINGS = DatabaseSettings()
+
+
+class MissingDatabaseURIError(RuntimeError):
+    """Raised when neither POSTGRES_URI nor DATABASE_URI is configured."""
+
+
+if DB_SETTINGS.postgres_uri is None:
+    raise MissingDatabaseURIError()
 
 engine: Engine = create_engine(
-    POSTGRES_URI,
-    echo=os.getenv("DB_ECHO", "false").lower() == "true",
+    DB_SETTINGS.postgres_uri,
+    echo=DB_SETTINGS.db_echo,
     pool_pre_ping=True,
     pool_recycle=300,
 )
 
 pgvector_engine: Engine = create_engine(
-    PGVECTOR_URI,
-    echo=os.getenv("DB_ECHO", "false").lower() == "true",
+    DB_SETTINGS.pgvector_uri or DB_SETTINGS.postgres_uri,
+    echo=DB_SETTINGS.db_echo,
     pool_pre_ping=True,
     pool_recycle=300,
 )
