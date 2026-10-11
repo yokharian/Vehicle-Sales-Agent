@@ -1,4 +1,4 @@
-FROM langchain/langgraph-api:latest-py3.12
+FROM langchain/langgraph-api:3.12-wolfi
 
 
 
@@ -9,7 +9,7 @@ ADD . /deps/vehicle-sales-agent
 # -- Installing all local dependencies --
 RUN for dep in /deps/*; do             echo "Installing $dep";             if [ -d "$dep" ]; then                 echo "Installing $dep";                 (cd "$dep" && PYTHONDONTWRITEBYTECODE=1 uv pip install --system --no-cache-dir -c /api/constraints.txt -e .);             fi;         done
 # -- End of local dependencies install --
-ENV LANGGRAPH_AUTH='{"path": "/deps/vehicle-sales-agent/src/auth.py:auth", "openapi": {"securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT", "description": "Supabase access token"}}, "security": [{"bearerAuth": []}]}}'
+ENV LANGGRAPH_AUTH='{"path": "/deps/vehicle-sales-agent/src/auth.py:auth", "disable_studio_auth": false, "openapi": {"securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT", "description": "Supabase access token"}}, "security": [{"bearerAuth": []}]}}'
 ENV LANGSERVE_GRAPHS='{"agent": "/deps/vehicle-sales-agent/src/agent.py:agent"}'
 
 

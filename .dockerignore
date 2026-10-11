@@ -1,0 +1,23 @@
+# Never bake secrets or local state into images
+.env
+.env.*
+!.env.example
+
+# VCS and tooling state
+.git
+.github
+.venv
+.omo
+.langgraph_api
+.pytest_cache
+.ruff_cache
+
+# Python artifacts
+__pycache__
+*.pyc
+*.pyo
+.venv
+
+# Docker files themselves (built from repo-root context)
+docker
+Dockerfile
