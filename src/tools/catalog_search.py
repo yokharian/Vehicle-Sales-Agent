@@ -14,18 +14,16 @@ import json
 import logging
 from typing import Any
 
-import rapidfuzz
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import SQLAlchemyError
 
 from db.database import Vehicle, get_session_sync
-from db.vehicle_dao import get_makes, get_models, get_models_by_make, search_vehicles
+from db.vehicle_dao import fuzzy_match_make, fuzzy_match_model, search_vehicles
 
 
 logger = logging.getLogger(__name__)
 
-FUZZY_MATCH_THRESHOLD = 70
 DEFAULT_MAX_RESULTS = 5
 MAX_RESULTS_CAP = 20
 
@@ -43,36 +41,22 @@ class CatalogSearchDatabaseError(RuntimeError):
     """Raised when the catalog database fails, without leaking DSNs."""
 
 
-def _fuzzy_pick(candidates: list[str], user_input: str) -> str | None:
-    """Best fuzzy match above the confidence threshold, else None."""
-    lowered = [candidate.lower() for candidate in candidates]
-    best_match = rapidfuzz.process.extractOne(
-        user_input.lower().strip(),
-        lowered,
-        score_cutoff=FUZZY_MATCH_THRESHOLD,
-    )
-    if not best_match:
-        return None
-    for candidate, lowered_candidate in zip(candidates, lowered, strict=False):
-        if lowered_candidate == best_match[0]:
-            return candidate
-    return None
-
-
 def fuzzy_search_make(make_input: str) -> str | None:
     """Resolve a user-provided make against known catalog values."""
-    all_makes = get_makes(limit=1000)
-    if not all_makes:
-        return None
-    return _fuzzy_pick(all_makes, make_input)
+    try:
+        return fuzzy_match_make(make_input)
+    except SQLAlchemyError as exc:
+        logger.error("Fuzzy match failed: %s", type(exc).__name__)
+        raise CatalogSearchDatabaseError("Vehicle catalog is temporarily unavailable.") from exc
 
 
 def fuzzy_search_model(model_input: str, make: str | None = None) -> str | None:
     """Resolve a user-provided model within a make (or across the catalog)."""
-    all_models = get_models_by_make(make, limit=1000) if make else get_models(limit=1000)
-    if not all_models:
-        return None
-    return _fuzzy_pick(all_models, model_input)
+    try:
+        return fuzzy_match_model(model_input, make)
+    except SQLAlchemyError as exc:
+        logger.error("Fuzzy match failed: %s", type(exc).__name__)
+        raise CatalogSearchDatabaseError("Vehicle catalog is temporarily unavailable.") from exc
 
 
 def _features_as_names(vehicle: Vehicle) -> list[str]:

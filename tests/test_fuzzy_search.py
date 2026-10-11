@@ -7,12 +7,14 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 
 
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from db.vehicle_dao import fuzzy_match_make, fuzzy_match_model
 from tools.catalog_search import (
+    CatalogSearchDatabaseError,
     catalog_search_tool,
     fuzzy_search_make,
     fuzzy_search_model,
@@ -22,54 +24,54 @@ from tools.catalog_search import (
 class TestFuzzySearch:
     """Test fuzzy search functionality."""
 
-    @patch("tools.catalog_search.get_makes")
-    def test_fuzzy_search_make_exact_match(self, mock_get_makes):
+    @patch("tools.catalog_search.fuzzy_match_make")
+    def test_fuzzy_search_make_exact_match(self, mock_fuzzy_match_make):
         """Test fuzzy search with exact match."""
 
-        mock_get_makes.return_value = ["Toyota", "Honda", "Ford", "BMW"]
+        mock_fuzzy_match_make.return_value = "Toyota"
 
         result = fuzzy_search_make("Toyota")
         assert result == "Toyota"
 
-    @patch("tools.catalog_search.get_makes")
-    def test_fuzzy_search_make_fuzzy_match(self, mock_get_makes):
+    @patch("tools.catalog_search.fuzzy_match_make")
+    def test_fuzzy_search_make_fuzzy_match(self, mock_fuzzy_match_make):
         """Test fuzzy search with fuzzy match."""
 
-        mock_get_makes.return_value = ["Toyota", "Honda", "Ford", "BMW"]
+        mock_fuzzy_match_make.return_value = "Toyota"
 
         result = fuzzy_search_make("Toyta")  # Typo in Toyota
         assert result == "Toyota"
 
-    @patch("tools.catalog_search.get_makes")
-    def test_fuzzy_search_make_no_match(self, mock_get_makes):
+    @patch("tools.catalog_search.fuzzy_match_make")
+    def test_fuzzy_search_make_no_match(self, mock_fuzzy_match_make):
         """Test fuzzy search with no good match."""
 
-        mock_get_makes.return_value = ["Toyota", "Honda", "Ford", "BMW"]
+        mock_fuzzy_match_make.return_value = None
 
         result = fuzzy_search_make("Xyz")  # No match
         assert result is None
 
-    @patch("tools.catalog_search.get_models_by_make")
-    def test_fuzzy_search_model_with_make(self, mock_get_models_by_make):
+    @patch("tools.catalog_search.fuzzy_match_model")
+    def test_fuzzy_search_model_with_make(self, mock_fuzzy_match_model):
         """Test fuzzy search for model with make filter."""
-        mock_get_models_by_make.return_value = ["Camry", "Corolla", "Prius", "RAV4"]
+        mock_fuzzy_match_model.return_value = "Camry"
 
         result = fuzzy_search_model("Camry", make="Toyota")
         assert result == "Camry"
 
-    @patch("tools.catalog_search.get_models_by_make")
-    def test_fuzzy_search_model_fuzzy_match(self, mock_get_models_by_make):
+    @patch("tools.catalog_search.fuzzy_match_model")
+    def test_fuzzy_search_model_fuzzy_match(self, mock_fuzzy_match_model):
         """Test fuzzy search for model with fuzzy match."""
-        mock_get_models_by_make.return_value = ["Camry", "Corolla", "Prius", "RAV4"]
+        mock_fuzzy_match_model.return_value = "Camry"
 
         result = fuzzy_search_model("Camri", make="Toyota")  # Typo in Camry
         assert result == "Camry"
 
     @patch("tools.catalog_search.search_vehicles")
-    @patch("tools.catalog_search.get_makes")
-    def test_catalog_search_with_fuzzy_make(self, mock_get_makes, mock_search_vehicles):
+    @patch("tools.catalog_search.fuzzy_match_make")
+    def test_catalog_search_with_fuzzy_make(self, mock_fuzzy_match_make, mock_search_vehicles):
         """Test catalog search with fuzzy make matching."""
-        mock_get_makes.return_value = ["Toyota", "Honda", "Ford", "BMW"]
+        mock_fuzzy_match_make.return_value = "Toyota"
 
         mock_vehicle = Mock()
         mock_vehicle.stock_id = 1
@@ -96,10 +98,10 @@ class TestFuzzySearch:
         assert artifact[0].make == "Toyota"
         assert artifact[0].model == "Camry"
 
-    @patch("tools.catalog_search.get_makes")
-    def test_catalog_search_no_fuzzy_match(self, mock_get_makes):
+    @patch("tools.catalog_search.fuzzy_match_make")
+    def test_catalog_search_no_fuzzy_match(self, mock_fuzzy_match_make):
         """Test catalog search when no fuzzy match is found."""
-        mock_get_makes.return_value = ["Toyota", "Honda", "Ford", "BMW"]
+        mock_fuzzy_match_make.return_value = None
 
         preferences = {"make": "Xyz", "budget_max": 30000, "max_results": 5}  # No match
 
@@ -107,6 +109,15 @@ class TestFuzzySearch:
 
         # Should return empty results
         assert len(artifact) == 0
+
+    @patch("tools.catalog_search.fuzzy_match_make")
+    def test_fuzzy_db_error_is_wrapped_without_dsn(self, mock_fuzzy_match_make):
+        mock_fuzzy_match_make.side_effect = SQLAlchemyError("postgresql://user:secret@host/db")
+        with pytest.raises(CatalogSearchDatabaseError) as excinfo:
+            fuzzy_search_make("toyota")
+        assert str(excinfo.value) == "Vehicle catalog is temporarily unavailable."
+        assert "postgresql://" not in str(excinfo.value)
+        assert "secret" not in str(excinfo.value)
 
     def test_fuzzy_search_comprehensive_scenarios(self):
         """Test comprehensive fuzzy search scenarios with various typos."""
