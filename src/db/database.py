@@ -1,7 +1,7 @@
 from collections.abc import Generator
 from typing import Any
 
-from sqlalchemy import JSON, Column, Engine
+from sqlalchemy import JSON, Column, Engine, text
 from sqlmodel import Field, Session, SQLModel, create_engine
 
 from config import DatabaseSettings
@@ -34,6 +34,9 @@ pgvector_engine: Engine = create_engine(
 
 def create_db_and_tables() -> None:
     """Create database tables."""
+    with engine.connect() as conn:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;"))
+        conn.commit()
     SQLModel.metadata.create_all(engine)
 
 
