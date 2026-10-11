@@ -20,19 +20,15 @@ sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 import db.database as db_module
 from config import DocumentSearchSettings
+from db.document_loader import CHUNK_OVERLAP, CHUNK_SIZE, DocumentLoader
 from tools.document_search import (
-    CHUNK_OVERLAP,
-    CHUNK_SIZE,
     DocumentChunk,
     DocumentChunkResult,
     DocumentSearchError,
     DocumentSearchInput,
     build_bm25_retriever,
     build_hybrid_retriever,
-    chunk_document,
-    chunk_documents,
     dense_search,
-    discover_documents,
     document_search_tool,
     ensure_tables,
     load_chunks,
@@ -88,7 +84,7 @@ class TestDocumentDiscovery:
         (tmp_path / "b.txt").write_text("texto", encoding="utf-8")
         (tmp_path / "a.md").write_text("# titulo", encoding="utf-8")
 
-        discovered = discover_documents(tmp_path)
+        discovered = DocumentLoader(tmp_path).discover()
 
         assert [path.name for path in discovered] == ["a.md", "b.txt"]
 
@@ -98,12 +94,12 @@ class TestDocumentDiscovery:
         (tmp_path / "report.pdf").write_bytes(b"%PDF")
         (tmp_path / "doc.md").write_text("contenido", encoding="utf-8")
 
-        discovered = discover_documents(tmp_path)
+        discovered = DocumentLoader(tmp_path).discover()
 
         assert [path.name for path in discovered] == ["doc.md"]
 
     def test_missing_directory_returns_empty(self, tmp_path):
-        assert discover_documents(tmp_path / "does-not-exist") == []
+        assert DocumentLoader(tmp_path / "does-not-exist").discover() == []
 
 
 class TestChunking:
@@ -113,7 +109,7 @@ class TestChunking:
         long_text = "palabra " * 200
         (tmp_path / "long.txt").write_text(long_text, encoding="utf-8")
 
-        chunks = chunk_document(tmp_path / "long.txt")
+        chunks = DocumentLoader.chunk(tmp_path / "long.txt")
 
         assert len(chunks) > 1
         assert all(len(chunk.page_content) <= CHUNK_SIZE for chunk in chunks)
@@ -123,7 +119,7 @@ class TestChunking:
         sentence = "la garantia cubre motor y transmision principales. "
         (tmp_path / "overlap.txt").write_text(sentence * 20, encoding="utf-8")
 
-        chunks = chunk_document(tmp_path / "overlap.txt")
+        chunks = DocumentLoader.chunk(tmp_path / "overlap.txt")
 
         assert len(chunks) > 1
         assert CHUNK_OVERLAP > 0
@@ -139,7 +135,7 @@ class TestChunking:
         )
         (tmp_path / "warranty.md").write_text(content, encoding="utf-8")
 
-        chunks = chunk_document(tmp_path / "warranty.md")
+        chunks = DocumentLoader.chunk(tmp_path / "warranty.md")
 
         assert len(chunks) > 2
         assert all(len(chunk.page_content) <= CHUNK_SIZE for chunk in chunks)
@@ -149,7 +145,7 @@ class TestChunking:
     def test_metadata_integrity(self, tmp_path):
         (tmp_path / "doc.txt").write_text("contenido " * 120, encoding="utf-8")
 
-        chunks = chunk_document(tmp_path / "doc.txt")
+        chunks = DocumentLoader.chunk(tmp_path / "doc.txt")
 
         for expected_index, chunk in enumerate(chunks):
             assert chunk.metadata["source"] == "doc.txt"
@@ -160,7 +156,7 @@ class TestChunking:
         unreadable = tmp_path / "broken.txt"
         unreadable.write_bytes(b"\xff\xfe\xfa")
 
-        chunks = chunk_document(unreadable)
+        chunks = DocumentLoader.chunk(unreadable)
 
         assert chunks == []
 
@@ -168,7 +164,8 @@ class TestChunking:
         (tmp_path / "z.md").write_text("# uno", encoding="utf-8")
         (tmp_path / "a.txt").write_text("dos", encoding="utf-8")
 
-        chunks = chunk_documents(discover_documents(tmp_path))
+        discovered = DocumentLoader(tmp_path).discover()
+        chunks = [chunk for path in discovered for chunk in DocumentLoader.chunk(path)]
 
         assert [chunk.metadata["source"] for chunk in chunks] == ["a.txt", "z.md"]
 
