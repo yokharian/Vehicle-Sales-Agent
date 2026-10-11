@@ -16,19 +16,21 @@ services:
 
       # Vehicle catalog in-memory sqlite
       - "POSTGRES_URI="
-      - "PGVECTOR_URI=postgres://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable"
+      - "PGVECTOR_URI=postgresql://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable"
 
       # Agent chat model
-      - MODEL_PROVIDER=${MODEL_PROVIDER}
-      - DEFAULT_MODEL=${DEFAULT_MODEL}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - MODEL_PROVIDER=${MODEL_PROVIDER:-openrouter}
+      - DEFAULT_MODEL=${DEFAULT_MODEL:-gpt-5.6-luna}
 
       # Document search embeddings
-      - DOCUMENT_OPENAI_API_KEY=${DOCUMENT_OPENAI_API_KEY}
-      - DOCUMENT_OPENROUTER_API_KEY=${DOCUMENT_OPENROUTER_API_KEY}
-      - DOCUMENT_EMBEDDING_PROVIDER=${DOCUMENT_EMBEDDING_PROVIDER}
-      - DOCUMENT_EMBEDDING_MODEL=${DOCUMENT_EMBEDDING_MODEL}
+      - DOCUMENT_EMBEDDING_PROVIDER=${DOCUMENT_EMBEDDING_PROVIDER:-openrouter}
+      - DOCUMENT_EMBEDDING_MODEL=${DOCUMENT_EMBEDDING_MODEL:-openai/text-embedding-3-small}
+
+      # NOTE: API keys (OPENAI_API_KEY, OPENROUTER_API_KEY, DOCUMENT_*_API_KEY,
+      # TWILIO_*, LANGFUSE_*, LANGSMITH_API_KEY — needed by the langgraph-api
+      # license check —, SUPABASE_URL) are delivered unshadowed by
+      # env_file ../.env — interpolating them here yields empty strings that
+      # override the real values.
 
       # Optional Langfuse Tracing
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
@@ -41,6 +43,11 @@ services:
     volumes:
       - ../data:/deps/vehicle-sales-agent/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "/api/healthcheck.py"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
 
   langgraph-postgres:
     image: pgvector/pgvector:pg16

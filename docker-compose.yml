@@ -6,8 +6,8 @@ services:
       - "2024:8000"
     environment:
       # Vehicle catalog + knowledge base (pgvector)
-      - DATABASE_URI=postgres://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
-      - PGVECTOR_URI=postgres://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
+      - DATABASE_URI=postgresql://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
+      - PGVECTOR_URI=postgresql://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
       # LangGraph run queue
       - REDIS_URI=redis://langgraph-redis:6379
 
@@ -29,14 +29,46 @@ services:
       - LANGFUSE_BASE_URL=${LANGFUSE_BASE_URL}
       - LANGFUSE_TRACING_ENVIRONMENT=${LANGFUSE_TRACING_ENVIRONMENT}
 
+      # LangGraph server license verification (postgres runtime edition)
+      - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
+
       # Optional Supabase JWT auth (unset = server runs open)
       - SUPABASE_URL=${SUPABASE_URL}
     volumes:
       - ./data:/deps/vehicle-sales-agent/data
     depends_on:
-      - langgraph-postgres
-      - langgraph-redis
+      langgraph-postgres:
+        condition: service_healthy
+      langgraph-redis:
+        condition: service_healthy
+      csv-ingest:
+        condition: service_completed_successfully
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "/api/healthcheck.py"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # One-shot CSV ingestion: seeds the vehicle catalog and creates tables, then exits.
+  # The langgraph-api service waits for this container to finish successfully.
+  csv-ingest:
+    build: .
+    # Override the image entrypoint (it always launches the langgraph server).
+    entrypoint: ["python"]
+    command: ["scripts/ingest_csv.py", "--file", "data/sample_vehicles.csv", "--create-tables"]
+    environment:
+      # POSTGRES_URI must be set here: scripts/ingest_csv.py loads ../.env with
+      # override=False, so a .env value would otherwise win and ingest into a
+      # different database than the one langgraph-api reads.
+      - POSTGRES_URI=postgresql://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
+      - PGVECTOR_URI=postgresql://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
+    volumes:
+      - ./data:/deps/vehicle-sales-agent/data
+    depends_on:
+      langgraph-postgres:
+        condition: service_healthy
+    restart: "no"
 
   langgraph-postgres:
     image: pgvector/pgvector:pg16
