@@ -12,7 +12,7 @@ from langchain_core.embeddings import DeterministicFakeEmbedding
 
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
-from tools import document_search
+from db.document_loader import ensure_tables, reindex
 from tools.catalog_search import catalog_search_tool
 from tools.document_search import document_search_tool
 from tools.financing_calculator import financing_calculator_tool
@@ -40,8 +40,8 @@ DOCUMENT_SEED = [
 
 @pytest.fixture
 def document_index():
-    document_search.ensure_tables()
-    document_search.reindex(DOCUMENT_SEED, FAKE_EMBEDDINGS)
+    ensure_tables()
+    reindex(DOCUMENT_SEED, FAKE_EMBEDDINGS)
     yield FAKE_EMBEDDINGS
 
 

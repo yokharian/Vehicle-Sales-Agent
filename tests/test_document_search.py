@@ -20,22 +20,26 @@ sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 import db.database as db_module
 from config import DocumentSearchSettings
-from db.document_loader import CHUNK_OVERLAP, CHUNK_SIZE, DocumentLoader
-from tools.document_search import (
+from db.document_loader import (
+    CHUNK_OVERLAP,
+    CHUNK_SIZE,
     DocumentChunk,
+    DocumentLoader,
+    dense_search,
+    ensure_tables,
+    load_chunks,
+    purge_removed_sources,
+    reindex,
+    upsert_document_chunks,
+)
+from tools.document_search import (
     DocumentChunkResult,
     DocumentSearchError,
     DocumentSearchInput,
     build_bm25_retriever,
     build_hybrid_retriever,
-    dense_search,
     document_search_tool,
-    ensure_tables,
-    load_chunks,
-    purge_removed_sources,
-    reindex,
     resolve_embeddings,
-    upsert_document_chunks,
 )
 
 

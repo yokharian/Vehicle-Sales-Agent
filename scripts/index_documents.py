@@ -9,7 +9,6 @@ directory mode, sources removed from the knowledge base are purged.
 """
 
 import argparse
-import hashlib
 import logging
 import sys
 from pathlib import Path
@@ -18,16 +17,16 @@ from pathlib import Path
 # Add src to path for imports
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
-import db.database as db_module
 from config import DocumentSearchSettings
-from db.document_loader import DocumentLoader
-from tools.document_search import (
-    DocumentChunk,
+from db.document_loader import (
+    DocumentLoader,
+    content_hash,
     ensure_tables,
     purge_removed_sources,
-    resolve_embeddings,
+    stored_chunk_hashes,
     upsert_document_chunks,
 )
+from tools.document_search import resolve_embeddings
 
 
 logging.basicConfig(
@@ -36,23 +35,6 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger(__name__)
-
-
-def _content_hash(model_id: str, page_content: str) -> str:
-    """Model-qualified chunk hash; must match the storage primitives."""
-    return hashlib.sha256(f"{model_id}\x00{page_content}".encode()).hexdigest()
-
-
-def _stored_chunk_hashes(source: str) -> list[tuple[int, str | None]]:
-    """Return the stored (chunk_index, content_hash) pairs of one source."""
-    with db_module.get_pgvector_session_sync() as session:
-        rows = (
-            session.query(DocumentChunk.chunk_index, DocumentChunk.content_hash)
-            .filter(DocumentChunk.source == source)
-            .order_by(DocumentChunk.chunk_index)
-            .all()
-        )
-    return [(row.chunk_index, row.content_hash) for row in rows]
 
 
 def main() -> int:
@@ -112,10 +94,10 @@ def main() -> int:
             seen_chunks += len(chunks)
             source = path.name
             desired = [
-                (chunk.metadata["chunk_index"], _content_hash(model_id, chunk.page_content))
+                (chunk.metadata["chunk_index"], content_hash(model_id, chunk.page_content))
                 for chunk in chunks
             ]
-            if not args.force and desired == _stored_chunk_hashes(source):
+            if not args.force and desired == stored_chunk_hashes(source):
                 logger.info("Document %s unchanged, skipped (%d chunks).", source, len(chunks))
                 skipped_files += 1
                 continue
