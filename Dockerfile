@@ -1,46 +1,27 @@
-# uv-managed Python 3.12 image (uv + Python bundled)
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+FROM langchain/langgraph-api:latest-py3.12
 
-# Set working directory
-WORKDIR /app
 
-# Install curl for the container health check
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies first for better Docker layer caching
-COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
+# -- Adding local package . --
+ADD . /deps/vehicle-sales-agent
+# -- End of local package . --
 
-# Copy the entire project
-COPY . .
+# -- Installing all local dependencies --
+RUN for dep in /deps/*; do             echo "Installing $dep";             if [ -d "$dep" ]; then                 echo "Installing $dep";                 (cd "$dep" && PYTHONDONTWRITEBYTECODE=1 uv pip install --system --no-cache-dir -c /api/constraints.txt -e .);             fi;         done
+# -- End of local dependencies install --
+ENV LANGGRAPH_AUTH='{"path": "/deps/vehicle-sales-agent/src/auth.py:auth", "openapi": {"securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT", "description": "Supabase access token"}}, "security": [{"bearerAuth": []}]}}'
+ENV LANGSERVE_GRAPHS='{"agent": "/deps/vehicle-sales-agent/src/agent.py:agent"}'
 
-# Set environment variables
-ENV PYTHONPATH=/app/src
-ENV PYTHONUNBUFFERED=1
 
-# Startup script: CSV ingestion first, then the WhatsApp server
-RUN set -e; \
-    cat > /app/start.sh <<'EOF' && chmod +x /app/start.sh
-#!/usr/bin/env sh
-set -e
 
-echo "🚀 Starting Commercial Agent Setup..."
-echo "📊 Step 1: Running CSV ingestion..."
-cd /app
-uv run python scripts/ingest_csv.py data/sample_vehicles.csv --create-tables
+# -- Ensure user deps didn't inadvertently overwrite langgraph-api
+RUN mkdir -p /api/langgraph_api /api/langgraph_runtime /api/langgraph_license && touch /api/langgraph_api/__init__.py /api/langgraph_runtime/__init__.py /api/langgraph_license/__init__.py
+RUN PYTHONDONTWRITEBYTECODE=1 uv pip install --system --no-cache-dir --no-deps -e /api
+# -- End of ensuring user deps didn't inadvertently overwrite langgraph-api --
+# -- Removing build deps from the final image ~<:===~~~ --
+RUN pip uninstall -y pip setuptools wheel
+RUN rm -rf /usr/local/lib/python*/site-packages/pip* /usr/local/lib/python*/site-packages/setuptools* /usr/local/lib/python*/site-packages/wheel* && find /usr/local/bin -name "pip*" -delete || true
+RUN rm -rf /usr/lib/python*/site-packages/pip* /usr/lib/python*/site-packages/setuptools* /usr/lib/python*/site-packages/wheel* && find /usr/bin -name "pip*" -delete || true
+RUN uv pip uninstall --system pip setuptools wheel && rm /usr/bin/uv /usr/bin/uvx
 
-echo "✅ CSV ingestion completed successfully"
-echo "📱 Step 2: Starting WhatsApp server..."
-exec uv run python src/whatsapp_server.py --host 0.0.0.0 --port 5000
-EOF
-
-# Expose the port
-EXPOSE 5000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:5000/health || exit 1
-
-# Run the startup script
-CMD ["/app/start.sh"]
+WORKDIR /deps/vehicle-sales-agent

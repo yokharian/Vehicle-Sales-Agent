@@ -18,6 +18,10 @@ os.environ.setdefault(
 # deterministic fake before any tool call touches the network.
 os.environ.setdefault("OPENAI_API_KEY", "test-key-for-testing")
 
+# src.auth instantiates SupabaseSettings at import time; seed a placeholder
+# project URL so tests/test_auth.py can import it without real credentials.
+os.environ.setdefault("SUPABASE_URL", "https://test-project.supabase.co")
+
 import pytest
 from langchain_core.embeddings import DeterministicFakeEmbedding
 from sqlalchemy import text as sql_text
