@@ -164,7 +164,7 @@ class DocumentChunk(_DocumentBase):
 
 def ensure_tables() -> None:
     """Create the document table if it does not exist yet."""
-    _DocumentBase.metadata.create_all(db_module.engine)
+    _DocumentBase.metadata.create_all(db_module.pgvector_engine)
 
 
 def _row_document(row: DocumentChunk) -> Document:
@@ -178,7 +178,7 @@ def reindex(chunks: list[Document], embeddings) -> int:
     """Replace the whole index with the given chunks, embedded and stored."""
     ensure_tables()
     vectors = embeddings.embed_documents([chunk.page_content for chunk in chunks]) if chunks else []
-    with db_module.get_session_sync() as session:
+    with db_module.get_pgvector_session_sync() as session:
         session.execute(delete(DocumentChunk))
         session.add_all(
             DocumentChunk(
@@ -196,7 +196,7 @@ def reindex(chunks: list[Document], embeddings) -> int:
 def load_chunks() -> list[Document]:
     """Load every stored chunk in deterministic source order."""
     ensure_tables()
-    with db_module.get_session_sync() as session:
+    with db_module.get_pgvector_session_sync() as session:
         rows = (
             session.query(DocumentChunk)
             .order_by(DocumentChunk.source, DocumentChunk.chunk_index)
@@ -208,7 +208,7 @@ def load_chunks() -> list[Document]:
 def dense_search(query: str, embeddings, limit: int) -> list[Document]:
     """Retrieve chunks by cosine similarity against the query embedding."""
     query_vector = embeddings.embed_query(query)
-    with db_module.get_session_sync() as session:
+    with db_module.get_pgvector_session_sync() as session:
         rows = (
             session.query(DocumentChunk)
             .order_by(
