@@ -39,6 +39,6 @@
 
 ## CAVEATS (verified 2026-10-12)
 
-- **Docker is required and is not running in this checkout.** `docker info` fails here, so `uv run pytest` cannot start (the first autouse fixture needs the daemon).
+- **Docker is required and is running in this checkout (verified 2026-10-13).** `docker info` succeeds, so the session fixtures can start the container.
 - **The root `.env` leaks into settings assertions.** Verified with a clean environment: from the repo root `DocumentSearchSettings()` resolves `embedding_provider=openrouter` (the `.env` value), while the same command from `/tmp` resolves `openai` (the code default). Tests that assert defaults therefore depend on your local `.env` — run from a clean worktree or unset `DOCUMENT_*`.
 - `ruff` is configured in `pyproject.toml` but is NOT in the `dev` dependency group (only `pytest` and `testcontainers`), and `.venv/bin/ruff` does not exist — invoke it as `uvx ruff`.

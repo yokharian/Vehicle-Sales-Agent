@@ -1,7 +1,7 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-10-12
-**Commit:** 971f941
+**Generated:** 2026-10-13
+**Commit:** 1541d7f
 **Branch:** master
 
 ## OVERVIEW
@@ -104,7 +104,7 @@ CI (`.github/workflows/deploy.yml`) builds, pushes and cosign-signs the image on
 ## NOTES
 
 - **`src/agent.py` currently runs without tools.** Lines 21-23 (tool imports), 80 (`tools = [...]`) and 85 (`tools=tools,`) are commented out, so the live agent has no catalog/document/financing capability although README, ADR-002 and the PRDs describe tool calling. Confirm intent before restoring.
-- **Docker is not running in this checkout (2026-10-12)**, so the test suite cannot start here.
+- **Docker is running in this checkout (verified 2026-10-13)**, so the test suite can start here again.
 - `.env` is read from the CWD by pydantic-settings, so tests and CLIs behave differently when run from another directory; the local `.env` also shadows settings defaults in `tests/test_config.py`.
 - `.aiignore` excludes `.env` and `.venv/`; `.env` exists locally and is gitignored.
 - ADR-006 is a Draft; ADR-001 to ADR-005 are Accepted and binding. Each tool has a PRD that defines its contract.
