@@ -4,8 +4,14 @@ services:
     build: .
     ports:
       - "2024:8000"
+    env_file:
+      - .env
     environment:
-      # Vehicle catalog + knowledge base (pgvector)
+      - N_JOBS_PER_WORKER=${N_JOBS_PER_WORKER:-1}
+      # Vehicle catalog + knowledge base (pgvector). POSTGRES_URI is pinned
+      # (not just DATABASE_URI) because it is the first AliasChoices name:
+      # a POSTGRES_URI from .env would otherwise win over DATABASE_URI.
+      - POSTGRES_URI=postgresql://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
       - DATABASE_URI=postgresql://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
       - PGVECTOR_URI=postgresql://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
       # LangGraph run queue
@@ -56,9 +62,10 @@ services:
   # The langgraph-api service waits for this container to finish successfully.
   csv-ingest:
     build: .
-    # Override the image entrypoint (it always launches the langgraph server).
     entrypoint: ["python"]
     command: ["scripts/ingest_csv.py", "--file", "data/sample_vehicles.csv", "--create-tables"]
+    env_file:
+      - .env
     environment:
       # POSTGRES_URI must be set here: scripts/ingest_csv.py loads ../.env with
       # override=False, so a .env value would otherwise win and ingest into a
@@ -79,7 +86,13 @@ services:
     build: .
     entrypoint: ["python"]
     command: ["scripts/index_documents.py"]
+    env_file:
+      - .env
     environment:
+      # POSTGRES_URI pinned alongside DATABASE_URI: same first-alias-wins
+      # hazard as csv-ingest documents below — a .env POSTGRES_URI would
+      # otherwise shadow DATABASE_URI here.
+      - POSTGRES_URI=postgresql://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
       - DATABASE_URI=postgresql://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
       - PGVECTOR_URI=postgresql://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
       - OPENAI_API_KEY=${OPENAI_API_KEY}

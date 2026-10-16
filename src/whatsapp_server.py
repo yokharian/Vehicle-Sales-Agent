@@ -63,7 +63,6 @@ class WhatsAppVehicleAssistant:
                     "error": "Twilio WhatsApp number not configured",
                 }
 
-            # Ensure the number has the correct format
             if not to_number.startswith("whatsapp:"):
                 to_number = f"whatsapp:{to_number}"
 
@@ -91,8 +90,7 @@ class WhatsAppVehicleAssistant:
             logger.info(f"Received WhatsApp message from {from_number}: {message_body}")
             response = self._handle_with_ai_agent(message_body)
 
-            # Format the response for WhatsApp (limit length)
-            if len(response) > 1600:  # WhatsApp has message limits
+            if len(response) > 1600:
                 response = response[:1600] + "...\n\n[Respuesta truncada]"
 
             logger.info(f"Sending WhatsApp response to {from_number}: {response[:100]}...")

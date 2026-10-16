@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,12 +24,31 @@ DEFAULT_EMBEDDING_MODELS: dict[str, str] = {
 }
 
 
+def _normalize_postgres_scheme(uri: str | None) -> str | None:
+    """Rewrite the bare `postgres` URL scheme to `postgresql`.
+
+    Providers and platform tooling (Prisma, LangGraph CLI defaults) emit
+    `postgres://...` URLs, but SQLAlchemy's dialect is named `postgresql`,
+    so passing one through raises `NoSuchModuleError: Can't load plugin:
+    sqlalchemy.dialects:postgres`. An explicit `+driver` suffix is preserved.
+    """
+    if uri is None:
+        return None
+    scheme, sep, rest = uri.partition("://")
+    if not sep:
+        return uri
+    if scheme == "postgres" or scheme.startswith("postgres+"):
+        return "postgresql" + scheme[len("postgres") :] + "://" + rest
+    return uri
+
+
 class DatabaseSettings(BaseSettings):
     """Database connection settings (relational + pgvector vector store).
 
     Relational reads POSTGRES_URI, falling back to the legacy DATABASE_URI so
     container deployments keep working. The vector database reads PGVECTOR_URI
     and defaults to the relational URI when unset (single-database setups).
+    Bare `postgres://` schemes are normalized to `postgresql://`.
     """
 
     model_config = SettingsConfigDict(
@@ -53,6 +72,8 @@ class DatabaseSettings(BaseSettings):
         validation_alias="DB_ECHO",
         description="Echo SQL statements emitted by the database engines",
     )
+
+    _normalize_schemes = field_validator("postgres_uri", "pgvector_uri")(_normalize_postgres_scheme)
 
 
 class DocumentSearchSettings(BaseSettings):
