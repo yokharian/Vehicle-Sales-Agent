@@ -17,7 +17,7 @@
           "type": "http",
           "scheme": "bearer",
           "bearerFormat": "JWT",
-          "description": "Supabase access token"
+          "description": "Cognito access token"
         }
       },
       "security": [

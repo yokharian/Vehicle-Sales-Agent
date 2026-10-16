@@ -1,8 +1,8 @@
-"""Tests for the Supabase-backed LangGraph custom auth middleware.
+"""Tests for the Cognito-backed LangGraph custom auth middleware.
 
 Tokens are signed with a throwaway RSA key whose public half is served by a
 stubbed JWKS client, so the full PyJWT verification path (signature, issuer,
-audience, expiry) runs without network access.
+token_use, client_id, expiry) runs without network access.
 """
 
 import asyncio
@@ -17,7 +17,8 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 import auth
 
 
-ISSUER = f"{auth.supabase.url.rstrip('/')}/auth/v1"
+ISSUER = auth.cognito.issuer
+CLIENT_ID = auth.cognito.app_client_id
 
 _PRIVATE_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 _OTHER_PRIVATE_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -27,7 +28,7 @@ _PUBLIC_JWK.update({"kid": "test-key", "use": "sig", "alg": "RS256"})
 
 @pytest.fixture(autouse=True)
 def _stub_jwks(monkeypatch):
-    """Serve the throwaway public key instead of hitting Supabase."""
+    """Serve the throwaway public key instead of hitting Cognito."""
     signing_key = SimpleNamespace(key=jwt.algorithms.RSAAlgorithm.from_jwk(json.dumps(_PUBLIC_JWK)))
     monkeypatch.setattr(auth._jwks_client, "get_signing_key_from_jwt", lambda *_: signing_key)
 
@@ -35,23 +36,22 @@ def _stub_jwks(monkeypatch):
 def make_token(
     sub: str = "user-abc",
     issuer: str = ISSUER,
-    audience: str = "authenticated",
+    client_id: str = CLIENT_ID,
+    token_use: str = "access",
+    username: str = "testuser",
     expires_at: datetime | None = None,
-    email: str | None = "user@example.com",
     key=_PRIVATE_KEY,
 ) -> str:
     now = datetime.now(UTC)
     payload = {
         "sub": sub,
-        "aud": audience,
-        "role": "authenticated",
         "iss": issuer,
         "iat": int(now.timestamp()),
         "exp": int((expires_at or now + timedelta(hours=1)).timestamp()),
-        "user_metadata": {"full_name": "Test User"},
+        "token_use": token_use,
+        "client_id": client_id,
+        "username": username,
     }
-    if email is not None:
-        payload["email"] = email
     return jwt.encode(payload, key, algorithm="RS256", headers={"kid": "test-key"})
 
 
@@ -64,15 +64,16 @@ class TestValidTokens:
         user = authenticate(f"Bearer {make_token()}")
 
         assert user["identity"] == "user-abc"
-        assert user["display_name"] == "user@example.com"
+        assert user["display_name"] == "testuser"
         assert user["is_authenticated"] is True
 
-    def test_display_name_falls_back_to_metadata(self):
-        token = make_token(email=None)
+    def test_identity_comes_from_sub_not_username(self):
+        token = make_token(sub="user-xyz", username="someone-else")
 
         user = authenticate(f"Bearer {token}")
 
-        assert user["display_name"] == "Test User"
+        assert user["identity"] == "user-xyz"
+        assert user["display_name"] == "someone-else"
 
 
 class TestRejectedTokens:
@@ -90,17 +91,20 @@ class TestRejectedTokens:
         assert exc.value.status_code == 401
 
     def test_wrong_issuer_rejected(self):
-        token = make_token(issuer="https://evil.supabase.co/auth/v1")
+        token = make_token(issuer="https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_EVIL")
 
         with pytest.raises(auth.Auth.exceptions.HTTPException) as exc:
             authenticate(f"Bearer {token}")
         assert exc.value.status_code == 401
 
-    def test_wrong_audience_rejected(self):
-        token = make_token(audience="service_role")
-
+    def test_id_token_rejected(self):
         with pytest.raises(auth.Auth.exceptions.HTTPException) as exc:
-            authenticate(f"Bearer {token}")
+            authenticate(f"Bearer {make_token(token_use='id')}")
+        assert exc.value.status_code == 401
+
+    def test_wrong_client_id_rejected(self):
+        with pytest.raises(auth.Auth.exceptions.HTTPException) as exc:
+            authenticate(f"Bearer {make_token(client_id='other-app-client')}")
         assert exc.value.status_code == 401
 
     def test_token_signed_with_other_key_rejected(self):
@@ -112,8 +116,8 @@ class TestRejectedTokens:
 
 
 class TestDisabledAuth:
-    def test_without_supabase_url_requests_pass_anonymously(self, monkeypatch):
-        monkeypatch.setattr(auth.supabase, "url", None)
+    def test_without_user_pool_requests_pass_anonymously(self, monkeypatch):
+        monkeypatch.setattr(auth.cognito, "user_pool_id", None)
 
         for authorization in ("Bearer whatever", ""):
             user = authenticate(authorization)
@@ -182,6 +186,5 @@ class TestOwnerAuthorization:
         filters_a = authorize("threads", "search", {}, identity="user-a")
         filters_b = authorize("threads", "search", {}, identity="user-b")
 
-        assert filters_a != filters_b
         assert filters_a == {"owner": "user-a"}
         assert filters_b == {"owner": "user-b"}

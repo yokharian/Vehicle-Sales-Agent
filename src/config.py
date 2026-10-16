@@ -154,34 +154,47 @@ class AgentSettings(BaseSettings):
     )
 
 
-class SupabaseSettings(BaseSettings):
-    """Supabase Auth settings used by the LangGraph auth middleware (src/auth.py).
+class CognitoSettings(BaseSettings):
+    """Cognito (Amplify Auth) settings used by the LangGraph middleware (src/auth.py).
 
-    Optional: when `url` is set, requests must carry a Supabase access token
-    as `Authorization: Bearer <jwt>`, validated against the project's JWKS
-    endpoint plus issuer, expiry and audience. When unset, the server runs
-    open under a single anonymous identity (e.g. local pgvector-only setups).
+    Optional: when both `region` and `user_pool_id` are set, requests must
+    carry a Cognito access token as `Authorization: Bearer <jwt>`, validated
+    against the user pool's JWKS endpoint plus issuer, expiry, token_use and
+    client identity. When unset, the server runs open under a single
+    anonymous identity (e.g. local pgvector-only setups).
     """
 
     model_config = SettingsConfigDict(
-        env_prefix="SUPABASE_",
+        env_prefix="COGNITO_",
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
 
-    url: str | None = Field(
+    region: str | None = Field(
         default=None,
-        description="Supabase project URL; unset disables JWT auth (server runs open)",
+        description="AWS region hosting the user pool; unset disables JWT auth (server runs open)",
     )
-    audience: str = Field(
-        default="authenticated",
-        description="Expected `aud` claim of user access tokens",
+    user_pool_id: str | None = Field(
+        default=None,
+        description="Cognito user pool ID; unset disables JWT auth (server runs open)",
+    )
+    app_client_id: str | None = Field(
+        default=None,
+        description="Expected `client_id` claim of access tokens; unset skips the check",
     )
 
     @property
     def enabled(self) -> bool:
-        return bool(self.url)
+        return bool(self.region and self.user_pool_id)
+
+    @property
+    def issuer(self) -> str:
+        return f"https://cognito-idp.{self.region}.amazonaws.com/{self.user_pool_id}"
+
+    @property
+    def jwks_uri(self) -> str:
+        return f"{self.issuer}/.well-known/jwks.json"
 
 
 class TwilioSettings(BaseSettings):

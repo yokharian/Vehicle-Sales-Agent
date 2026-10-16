@@ -16,7 +16,7 @@ vehicle-sales-agent/
 │   ├── agent.py            # LangGraph graph + SYSTEM_PROMPT + chat()
 │   ├── whatsapp_server.py  # FastAPI webhook server (entry point)
 │   ├── config.py           # all pydantic-settings classes
-│   ├── auth.py             # optional Supabase JWT auth
+│   ├── auth.py             # optional Cognito JWT auth
 │   ├── db/                 # engines, Vehicle model, DAO, pgvector chunk store
 │   └── tools/              # three @tool functions the agent calls
 ├── scripts/        # ingest_csv.py, index_documents.py, html2text_cli.py (CLI entry points)

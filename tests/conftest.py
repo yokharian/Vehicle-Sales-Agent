@@ -22,9 +22,11 @@ os.environ.setdefault(
 # deterministic fake before any tool call touches the network.
 os.environ.setdefault("OPENAI_API_KEY", "test-key-for-testing")
 
-# src.auth instantiates SupabaseSettings at import time; seed a placeholder
-# project URL so tests/test_auth.py can import it without real credentials.
-os.environ.setdefault("SUPABASE_URL", "https://test-project.supabase.co")
+# src.auth instantiates CognitoSettings at import time; seed a placeholder
+# user pool so tests/test_auth.py can import it without real credentials.
+os.environ.setdefault("COGNITO_REGION", "us-test-1")
+os.environ.setdefault("COGNITO_USER_POOL_ID", "us-test-1_TESTPOOL")
+os.environ.setdefault("COGNITO_APP_CLIENT_ID", "test-app-client")
 
 import pytest
 from langchain_core.embeddings import DeterministicFakeEmbedding

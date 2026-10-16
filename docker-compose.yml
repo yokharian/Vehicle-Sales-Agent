@@ -37,8 +37,10 @@ services:
       # LangGraph server license verification (postgres runtime edition)
       - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
 
-      # Optional Supabase JWT auth (unset = server runs open)
-      - SUPABASE_URL=${SUPABASE_URL}
+      # Optional Cognito JWT auth (unset = server runs open)
+      - COGNITO_REGION=${COGNITO_REGION}
+      - COGNITO_USER_POOL_ID=${COGNITO_USER_POOL_ID}
+      - COGNITO_APP_CLIENT_ID=${COGNITO_APP_CLIENT_ID}
     volumes:
       - ./data:/deps/vehicle-sales-agent/data
     depends_on:

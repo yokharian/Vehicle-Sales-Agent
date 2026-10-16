@@ -9,7 +9,7 @@ The running service: one LangGraph agent, one FastAPI webhook server, one settin
 | Agent graph + system prompt | `agent.py` | `agent` (LangGraph `create_agent`), `chat()`, `build_chat_model()`, `SYSTEM_PROMPT` |
 | WhatsApp webhook server | `whatsapp_server.py` | `create_fastapi_app()`, `start_whatsapp_server()`, CLI `--host/--port/--debug` |
 | All configuration | `config.py` | one `*Settings(BaseSettings)` class per concern; `.env`-backed |
-| JWT auth for the server | `auth.py` | LangGraph `Auth`; Supabase JWKS validation |
+| JWT auth for the server | `auth.py` | LangGraph `Auth`; Cognito JWKS validation |
 
 Entry points: `langgraph.json` maps the graph to `./src/agent.py:agent` and auth to `./src/auth.py:auth`; Docker runs `src/whatsapp_server.py`.
 
@@ -32,4 +32,4 @@ Entry points: `langgraph.json` maps the graph to `./src/agent.py:agent` and auth
 ## KNOWN STATE / GOTCHAS
 
 - **`agent.py` currently ships WITHOUT tools.** Lines 21–23 (tool imports), 80 (`tools = [...]`) and 85 (`tools=tools,` in `create_agent`) are commented out, so the running agent answers with no catalog/document/financing capability while README, ADR-002 and the PRDs describe tool calling. Restoring those lines is the fix; confirm intent before "fixing" it.
-- `langgraph.json` sets `disable_studio_auth: false`, so leaving `SUPABASE_URL` unset runs the graph server open under a single anonymous identity — fine locally, not for deployment.
+- `langgraph.json` sets `disable_studio_auth: false`, so leaving `COGNITO_REGION`/`COGNITO_USER_POOL_ID` unset runs the graph server open under a single anonymous identity — fine locally, not for deployment.

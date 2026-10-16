@@ -102,8 +102,8 @@ All configuration is loaded with `pydantic-settings` from `.env` (see [`.env.exa
 | `DATABASE_URI` | PostgreSQL connection string (CRUD, tables) |
 | `PGVECTOR_URI` | pgvector connection string (defaults to `DATABASE_URI` when unset) |
 | `DB_ECHO` | Echo SQL statements (optional, default `false`) |
-| `SUPABASE_URL` | Optional — set to enable Supabase JWT auth; omit to run open (anonymous) |
-| `SUPABASE_AUDIENCE` | Expected token `aud` claim (optional, default `authenticated`) |
+| `COGNITO_REGION` / `COGNITO_USER_POOL_ID` | Optional — set both to enable Cognito JWT auth; omit to run open (anonymous) |
+| `COGNITO_APP_CLIENT_ID` | Expected `client_id` claim of access tokens (optional) |
 | `TWILIO_*` | Twilio account SID, auth token, WhatsApp number |
 
 ## 🔧 How It Works

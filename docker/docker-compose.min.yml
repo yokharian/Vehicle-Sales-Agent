@@ -28,7 +28,7 @@ services:
 
       # NOTE: API keys (OPENAI_API_KEY, OPENROUTER_API_KEY, DOCUMENT_*_API_KEY,
       # TWILIO_*, LANGFUSE_*, LANGSMITH_API_KEY — needed by the langgraph-api
-      # license check —, SUPABASE_URL) are delivered unshadowed by
+      # license check —, COGNITO_*) are delivered unshadowed by
       # env_file ../.env — interpolating them here yields empty strings that
       # override the real values.
 
@@ -38,8 +38,10 @@ services:
       - LANGFUSE_BASE_URL=${LANGFUSE_BASE_URL}
       - LANGFUSE_TRACING_ENVIRONMENT=${LANGFUSE_TRACING_ENVIRONMENT}
 
-      # Optional Supabase JWT auth (unset = server runs open)
-      - SUPABASE_URL=${SUPABASE_URL}
+      # Optional Cognito JWT auth (unset = server runs open)
+      - COGNITO_REGION=${COGNITO_REGION}
+      - COGNITO_USER_POOL_ID=${COGNITO_USER_POOL_ID}
+      - COGNITO_APP_CLIENT_ID=${COGNITO_APP_CLIENT_ID}
     volumes:
       - ../data:/deps/vehicle-sales-agent/data
     restart: unless-stopped
