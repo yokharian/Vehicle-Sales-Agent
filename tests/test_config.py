@@ -104,29 +104,34 @@ class TestDatabaseSettings:
     """Bare `postgres://` schemes are normalized to `postgresql://`."""
 
     def test_normalizes_postgres_scheme(self):
-        settings = DatabaseSettings(**{"POSTGRES_URI": "postgres://u:p@host:5432/db"})
-
-        assert settings.postgres_uri == "postgresql://u:p@host:5432/db"
-
-    def test_normalizes_postgres_scheme_via_database_uri_alias(self):
         settings = DatabaseSettings(**{"DATABASE_URI": "postgres://u:p@host:5432/db"})
 
-        assert settings.postgres_uri == "postgresql://u:p@host:5432/db"
+        assert settings.database_uri == "postgresql://u:p@host:5432/db"
+
+    def test_postgres_uri_env_name_is_retired(self):
+        settings = DatabaseSettings(
+            **{
+                "POSTGRES_URI": "postgres://ignored:ignored@localhost:1/ignored",
+                "DATABASE_URI": "postgresql://u:p@host:5432/db",
+            }
+        )
+
+        assert settings.database_uri == "postgresql://u:p@host:5432/db"
 
     def test_preserves_explicit_driver_suffix(self):
-        settings = DatabaseSettings(**{"POSTGRES_URI": "postgres+psycopg2://u:p@host:5432/db"})
+        settings = DatabaseSettings(**{"DATABASE_URI": "postgres+psycopg2://u:p@host:5432/db"})
 
-        assert settings.postgres_uri == "postgresql+psycopg2://u:p@host:5432/db"
+        assert settings.database_uri == "postgresql+psycopg2://u:p@host:5432/db"
 
     def test_leaves_postgresql_uris_untouched(self):
-        settings = DatabaseSettings(**{"POSTGRES_URI": "postgresql://u:p@host:5432/db"})
+        settings = DatabaseSettings(**{"DATABASE_URI": "postgresql://u:p@host:5432/db"})
 
-        assert settings.postgres_uri == "postgresql://u:p@host:5432/db"
+        assert settings.database_uri == "postgresql://u:p@host:5432/db"
 
     def test_normalizes_pgvector_uri(self):
         settings = DatabaseSettings(
             **{
-                "POSTGRES_URI": "postgresql://u:p@host:5432/db",
+                "DATABASE_URI": "postgresql://u:p@host:5432/db",
                 "PGVECTOR_URI": "postgres://u:p@host:5432/db",
             }
         )
@@ -134,11 +139,11 @@ class TestDatabaseSettings:
         assert settings.pgvector_uri == "postgresql://u:p@host:5432/db"
 
     def test_normalized_uri_loads_sqlalchemy_dialect(self):
-        settings = DatabaseSettings(**{"POSTGRES_URI": "postgres://u:p@host:5432/db"})
+        settings = DatabaseSettings(**{"DATABASE_URI": "postgres://u:p@host:5432/db"})
 
         # Raises NoSuchModuleError for the un-normalized `postgres` scheme;
         # building the engine opens no connection.
-        assert create_engine(settings.postgres_uri) is not None
+        assert create_engine(settings.database_uri) is not None
 
 
 class TestAgentSettings:

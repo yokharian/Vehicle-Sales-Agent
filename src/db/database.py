@@ -11,21 +11,21 @@ DB_SETTINGS = DatabaseSettings()
 
 
 class MissingDatabaseURIError(RuntimeError):
-    """Raised when neither POSTGRES_URI nor DATABASE_URI is configured."""
+    """Raised when DATABASE_URI is not configured."""
 
 
-if DB_SETTINGS.postgres_uri is None:
+if DB_SETTINGS.database_uri is None:
     raise MissingDatabaseURIError()
 
 engine: Engine = create_engine(
-    DB_SETTINGS.postgres_uri,
+    DB_SETTINGS.database_uri,
     echo=DB_SETTINGS.db_echo,
     pool_pre_ping=True,
     pool_recycle=300,
 )
 
 pgvector_engine: Engine = create_engine(
-    DB_SETTINGS.pgvector_uri or DB_SETTINGS.postgres_uri,
+    DB_SETTINGS.pgvector_uri or DB_SETTINGS.database_uri,
     echo=DB_SETTINGS.db_echo,
     pool_pre_ping=True,
     pool_recycle=300,

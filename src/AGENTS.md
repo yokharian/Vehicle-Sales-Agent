@@ -16,7 +16,7 @@ Entry points: `langgraph.json` maps the graph to `./src/agent.py:agent` and auth
 ## CONVENTIONS
 
 - Flat sibling imports are the norm: `from config import ...`, `from agent import chat`, `import db.database as db_module`. Each entry point prepends its own directory to `sys.path` (`sys.path.append(str(Path(__file__).parent))` in `agent.py` and `whatsapp_server.py`; `sys.path.insert(0, .../src)` in tests and scripts). Note this contradicts ruff's `known-first-party = ["src", "tests"]`.
-- Configuration is pydantic-settings, one class per concern, `extra="ignore"`, with `AliasChoices` where a legacy name must keep working (`POSTGRES_URI` → `DATABASE_URI`). Read settings through a class instance; never `os.environ` directly in application code.
+- Configuration is pydantic-settings, one class per concern, `extra="ignore"`, with explicit `validation_alias` env names (`DATABASE_URI`, `PGVECTOR_URI`); the legacy `POSTGRES_URI` name is retired. Read settings through a class instance; never `os.environ` directly in application code.
 - Import-time side effects are deliberate and load-bearing: `config.py` classes are instantiated, `agent.py` builds `standard_model`, the `agent` graph and `langfuse_handler` at import, and `db/database.py` opens its engines. Importing `agent` with `MODEL_PROVIDER=openrouter` and no `OPENROUTER_API_KEY` raises `ValueError` at import.
 - User-facing strings are Spanish; code, logs and docstrings are English. Keep the agent's fallback line verbatim: "Lo siento, no tengo esa información disponible en este momento."
 - Tool output sent over WhatsApp is truncated at 1600 chars with the suffix `...\n\n[Respuesta truncada]`.

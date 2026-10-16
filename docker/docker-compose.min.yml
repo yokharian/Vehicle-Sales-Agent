@@ -15,7 +15,7 @@ services:
       - REDIS_URI=fake
 
       # Vehicle catalog in-memory sqlite
-      - "POSTGRES_URI="
+      - "DATABASE_URI="
       - "PGVECTOR_URI=postgresql://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable"
 
       # Agent chat model

@@ -8,10 +8,9 @@ services:
       - .env
     environment:
       - N_JOBS_PER_WORKER=${N_JOBS_PER_WORKER:-1}
-      # Vehicle catalog + knowledge base (pgvector). POSTGRES_URI is pinned
-      # (not just DATABASE_URI) because it is the first AliasChoices name:
-      # a POSTGRES_URI from .env would otherwise win over DATABASE_URI.
-      - POSTGRES_URI=postgresql://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
+      # Vehicle catalog + knowledge base (pgvector). DATABASE_URI is pinned
+      # so a .env value cannot point the agent at a different database than
+      # the ingest containers fill.
       - DATABASE_URI=postgresql://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
       - PGVECTOR_URI=postgresql://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
       # LangGraph run queue
@@ -67,10 +66,9 @@ services:
     env_file:
       - .env
     environment:
-      # POSTGRES_URI must be set here: scripts/ingest_csv.py loads ../.env with
-      # override=False, so a .env value would otherwise win and ingest into a
-      # different database than the one langgraph-api reads.
-      - POSTGRES_URI=postgresql://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
+      # DATABASE_URI is pinned so the ingest always targets the same database
+      # langgraph-api reads, regardless of what .env says.
+      - DATABASE_URI=postgresql://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
       - PGVECTOR_URI=postgresql://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
     volumes:
       - ./data:/deps/vehicle-sales-agent/data
@@ -89,10 +87,6 @@ services:
     env_file:
       - .env
     environment:
-      # POSTGRES_URI pinned alongside DATABASE_URI: same first-alias-wins
-      # hazard as csv-ingest documents below — a .env POSTGRES_URI would
-      # otherwise shadow DATABASE_URI here.
-      - POSTGRES_URI=postgresql://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
       - DATABASE_URI=postgresql://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
       - PGVECTOR_URI=postgresql://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
       - OPENAI_API_KEY=${OPENAI_API_KEY}

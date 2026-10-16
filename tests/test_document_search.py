@@ -369,7 +369,7 @@ class TestDocumentSearchTool:
             document_search_tool.func(query="garantía", k=6)
 
         assert "connection" not in str(exc_info.value)
-        assert os.getenv("POSTGRES_URI") not in str(exc_info.value)
+        assert os.getenv("DATABASE_URI") not in str(exc_info.value)
 
     @pytest.mark.usefixtures("document_index")
     def test_retrieval_failure_returns_controlled_error(self, monkeypatch):

@@ -17,7 +17,7 @@ Two stores behind one package: the SQLModel vehicle catalog (relational) and the
 - Two engines, two session helpers: `get_session_sync()` (catalog) and `get_pgvector_session_sync()` (chunks). Everything is sync SQLAlchemy/SQLModel — do not introduce async sessions even though the sample URIs say `asyncpg`.
 - Reach engines through the MODULE: `import db.database as db_module`, then `db_module.pgvector_engine`. The one-argument form (`from .database import get_session_sync`) works because those functions build a `Session` from the global at call time. This is deliberate: the test harness swaps `db_module.engine` at runtime.
 - Fuzzy matching is computed in PostgreSQL (`levenshtein` + `strpos` containment bonus of 90, alphabetical tie-break), never in Python. Inputs over 255 bytes return `None` — PostgreSQL's levenshtein limit — rather than raising.
-- Import-time failure is intentional: `database.py` raises `MissingDatabaseURIError` when neither `POSTGRES_URI` nor `DATABASE_URI` is set.
+- Import-time failure is intentional: `database.py` raises `MissingDatabaseURIError` when `DATABASE_URI` is not set.
 - Indexed sources are `.md`/`.txt` only (`SUPPORTED_SUFFIXES`), chunked 500/100. `content_hash` is embedding-model-qualified, so switching models invalidates stored rows.
 - DDL is additive and idempotent: `ensure_tables()` also runs `ALTER TABLE ... ADD COLUMN IF NOT EXISTS content_hash`.
 

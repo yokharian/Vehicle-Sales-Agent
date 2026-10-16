@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -45,8 +45,7 @@ def _normalize_postgres_scheme(uri: str | None) -> str | None:
 class DatabaseSettings(BaseSettings):
     """Database connection settings (relational + pgvector vector store).
 
-    Relational reads POSTGRES_URI, falling back to the legacy DATABASE_URI so
-    container deployments keep working. The vector database reads PGVECTOR_URI
+    Relational reads DATABASE_URI. The vector database reads PGVECTOR_URI
     and defaults to the relational URI when unset (single-database setups).
     Bare `postgres://` schemes are normalized to `postgresql://`.
     """
@@ -57,15 +56,15 @@ class DatabaseSettings(BaseSettings):
         extra="ignore",
     )
 
-    postgres_uri: str | None = Field(
+    database_uri: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("POSTGRES_URI", "DATABASE_URI"),
+        validation_alias="DATABASE_URI",
         description="Relational PostgreSQL connection (CRUD, tables)",
     )
     pgvector_uri: str | None = Field(
         default=None,
         validation_alias="PGVECTOR_URI",
-        description="pgvector connection; defaults to postgres_uri when unset",
+        description="pgvector connection; defaults to database_uri when unset",
     )
     db_echo: bool = Field(
         default=False,
@@ -73,7 +72,7 @@ class DatabaseSettings(BaseSettings):
         description="Echo SQL statements emitted by the database engines",
     )
 
-    _normalize_schemes = field_validator("postgres_uri", "pgvector_uri")(_normalize_postgres_scheme)
+    _normalize_schemes = field_validator("database_uri", "pgvector_uri")(_normalize_postgres_scheme)
 
 
 class DocumentSearchSettings(BaseSettings):

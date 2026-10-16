@@ -9,7 +9,7 @@ services:
       - ../.env
     environment:
       # Vehicle catalog + knowledge base (pgvector)
-      - POSTGRES_URI=${POSTGRES_URI:-postgresql+asyncpg://postgres:postgres@db:5432/langgraph?sslmode=disable}
+      - DATABASE_URI=${DATABASE_URI:-postgresql+asyncpg://postgres:postgres@db:5432/langgraph?sslmode=disable}
       - PGVECTOR_URI=${PGVECTOR_URI:-postgresql+asyncpg://postgres:postgres@db:5432/langgraph?sslmode=disable}
 
       # Agent chat model
@@ -64,7 +64,7 @@ services:
     env_file:
       - ../.env
     environment:
-      - POSTGRES_URI=${POSTGRES_URI:-postgresql+asyncpg://postgres:postgres@db:5432/langgraph?sslmode=disable}
+      - DATABASE_URI=${DATABASE_URI:-postgresql+asyncpg://postgres:postgres@db:5432/langgraph?sslmode=disable}
       - PGVECTOR_URI=${PGVECTOR_URI:-postgresql+asyncpg://postgres:postgres@db:5432/langgraph?sslmode=disable}
     volumes:
       - ../data:/app/data
@@ -83,7 +83,7 @@ services:
     env_file:
       - ../.env
     environment:
-      - POSTGRES_URI=${POSTGRES_URI:-postgresql+asyncpg://postgres:postgres@db:5432/langgraph?sslmode=disable}
+      - DATABASE_URI=${DATABASE_URI:-postgresql+asyncpg://postgres:postgres@db:5432/langgraph?sslmode=disable}
       - PGVECTOR_URI=${PGVECTOR_URI:-postgresql+asyncpg://postgres:postgres@db:5432/langgraph?sslmode=disable}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
