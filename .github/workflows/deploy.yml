@@ -117,8 +117,19 @@ jobs:
             echo "DOKPLOY_DEPLOY_WEBHOOK is not set; skipping deploy trigger."
             exit 0
           fi
-          curl -fsS --max-time 60 --retry 3 --retry-delay 5 \
+          # Fail on ANY non-200: Dokploy answers 404 (unknown token), 400
+          # (deployments disabled) and 301 (branch / watch paths not matched)
+          # without deploying, and curl --fail would wrongly treat the 3xx
+          # family as success. Capture the body so logs show why.
+          status=$(curl -sS --max-time 60 --retry 3 --retry-delay 5 \
+            -o /tmp/webhook-body.txt -w '%{http_code}' \
             -X POST "$DOKPLOY_DEPLOY_WEBHOOK" \
             -H "Content-Type: application/json" \
             -H "X-GitHub-Event: push" \
-            -d '{"ref":"refs/heads/master","repository":{"full_name":"yokharian/Vehicle-Sales-Agent"}}'
+            -d '{"ref":"refs/heads/master","repository":{"full_name":"yokharian/Vehicle-Sales-Agent"}}')
+          body=$(head -c 300 /tmp/webhook-body.txt)
+          echo "Dokploy webhook responded with HTTP ${status}: ${body}"
+          if [ "$status" != "200" ]; then
+            echo "::error::Dokploy webhook returned HTTP ${status}; deployment was not triggered."
+            exit 1
+          fi
