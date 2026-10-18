@@ -101,8 +101,11 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     # Runs inside the repository's "Production" environment, so environment
-    # secrets and protection rules apply on top of the repo-level ones.
-    environment: Production
+    # secrets and protection rules apply on top of the repo-level ones; the
+    # deployment record links the API's /ok health endpoint.
+    environment:
+      name: Production
+      url: https://api.yokharian.dev/ok
     # The Production environment's deployment branch policy only admits
     # master, so release tags publish the image but skip this job instead of
     # failing the run. To let tags deploy too, add a matching rule to the
