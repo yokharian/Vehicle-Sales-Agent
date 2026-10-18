@@ -483,7 +483,7 @@ class TestGranularIngest:
             ensure_tables()
             reindex(SEED_CHUNKS, FAKE_EMBEDDINGS)
 
-    def test_cli_hash_skip_and_missing_file(self, monkeypatch, caplog):
+    def test_cli_hash_skip_and_missing_file(self, tmp_path, monkeypatch, caplog):
         caplog.set_level(logging.INFO)
 
         script_path = Path(__file__).parent.parent / "scripts" / "index_documents.py"
@@ -504,7 +504,16 @@ class TestGranularIngest:
         counting = _CountingEmbeddings()
         monkeypatch.setattr(module, "resolve_embeddings", lambda: counting)
 
-        monkeypatch.setattr(sys, "argv", ["index_documents"])
+        # The CLI's default --documents-dir is CWD-relative ("data/documents"),
+        # so the test drives an explicit tmp directory to stay hermetic.
+        documents_dir = tmp_path / "documents"
+        documents_dir.mkdir()
+        (documents_dir / "warranty.md").write_text(
+            "Kavak ofrece garantía mecánica de 3 meses o 5,000 kilómetros.",
+            encoding="utf-8",
+        )
+
+        monkeypatch.setattr(sys, "argv", ["index_documents", "--documents-dir", str(documents_dir)])
         assert module.main() == 0
         assert len(embed_calls) >= 1
 
@@ -515,7 +524,12 @@ class TestGranularIngest:
         assert "unchanged, skipped" in caplog.text
 
         before_missing = load_chunks()
-        monkeypatch.setattr(sys, "argv", ["index_documents", "--file", "nonexistent.md"])
+        missing = tmp_path / "nonexistent.md"
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["index_documents", "--documents-dir", str(documents_dir), "--file", str(missing)],
+        )
         assert module.main() == 1
         assert len(embed_calls) == after_first_run
         assert load_chunks() == before_missing
