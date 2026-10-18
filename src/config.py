@@ -90,7 +90,7 @@ class DocumentSearchSettings(BaseSettings):
         description="Embedding provider: 'openai' or 'openrouter'",
     )
     embedding_model: str | None = Field(
-        default="openai/text-embedding-3-small",
+        default=None,
         description="Embedding model override; None uses the provider default",
     )
     openrouter_api_key: str | None = Field(
