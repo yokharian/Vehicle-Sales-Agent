@@ -34,7 +34,38 @@ from sqlalchemy import text as sql_text
 from testcontainers.community.postgres import PostgresContainer
 
 import db.database as db_module
+from config import (
+    AgentSettings,
+    CognitoSettings,
+    DatabaseSettings,
+    DocumentSearchSettings,
+    TwilioSettings,
+)
 from tools import document_search
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_settings(monkeypatch):
+    """Ignore the developer's .env file for the duration of every test.
+
+    pydantic-settings resolves `env_file` relative to the CWD, so running the
+    suite from the repository root lets the local `.env` shadow every default
+    the settings tests assert. Pointing each settings class at no env file
+    keeps the suite hermetic: values still come from `monkeypatch.setenv`,
+    conftest's seeded env vars, or explicit constructor kwargs.
+    """
+    for settings_cls in (
+        AgentSettings,
+        CognitoSettings,
+        DatabaseSettings,
+        DocumentSearchSettings,
+        TwilioSettings,
+    ):
+        monkeypatch.setattr(
+            settings_cls,
+            "model_config",
+            {**settings_cls.model_config, "env_file": None},
+        )
 
 
 @pytest.fixture(scope="session", autouse=True)
