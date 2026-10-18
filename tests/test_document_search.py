@@ -203,6 +203,24 @@ class TestEmbeddingProviderConfig:
         with pytest.raises(ValueError, match="OPENROUTER_API_KEY"):
             resolve_embeddings()
 
+    def test_vercel_embeddings_resolved(self, monkeypatch):
+        monkeypatch.setenv("DOCUMENT_EMBEDDING_PROVIDER", "vercel")
+        monkeypatch.delenv("DOCUMENT_EMBEDDING_MODEL", raising=False)
+        monkeypatch.setenv("AI_GATEWAY_API_KEY", "test-gateway-key")
+
+        embeddings = resolve_embeddings()
+
+        assert type(embeddings).__name__ == "OpenAIEmbeddings"
+        assert embeddings.openai_api_base == "https://ai-gateway.vercel.sh/v1"
+        assert embeddings.model == "openai/text-embedding-3-small"
+
+    def test_vercel_requires_api_key(self, monkeypatch):
+        monkeypatch.setenv("DOCUMENT_EMBEDDING_PROVIDER", "vercel")
+        monkeypatch.delenv("AI_GATEWAY_API_KEY", raising=False)
+
+        with pytest.raises(ValueError, match="AI_GATEWAY_API_KEY"):
+            resolve_embeddings()
+
 
 @pytest.mark.usefixtures("document_index")
 class TestDocumentStore:

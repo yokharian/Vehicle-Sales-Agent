@@ -14,13 +14,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+VERCEL_AI_GATEWAY_BASE_URL = "https://ai-gateway.vercel.sh/v1"
 
-EmbeddingProvider = Literal["openai", "openrouter"]
-ChatModelProvider = Literal["openai", "openrouter"]
+EmbeddingProvider = Literal["openai", "openrouter", "vercel"]
+ChatModelProvider = Literal["openai", "openrouter", "vercel"]
 
 DEFAULT_EMBEDDING_MODELS: dict[str, str] = {
     "openai": "text-embedding-3-small",
     "openrouter": "openai/text-embedding-3-small",
+    "vercel": "openai/text-embedding-3-small",
 }
 
 
@@ -87,7 +89,7 @@ class DocumentSearchSettings(BaseSettings):
 
     embedding_provider: EmbeddingProvider = Field(
         default="openai",
-        description="Embedding provider: 'openai' or 'openrouter'",
+        description="Embedding provider: 'openai', 'openrouter' or 'vercel'",
     )
     embedding_model: str | None = Field(
         default=None,
@@ -102,6 +104,11 @@ class DocumentSearchSettings(BaseSettings):
         default=None,
         validation_alias="OPENAI_API_KEY",
         description="API key used when embedding_provider is 'openai'",
+    )
+    vercel_api_key: str | None = Field(
+        default=None,
+        validation_alias="AI_GATEWAY_API_KEY",
+        description="API key used when embedding_provider is 'vercel'",
     )
     top_k: int = Field(default=6, ge=1, description="Final number of retrieved passages")
     bm25_candidates: int = Field(default=6, ge=1, description="BM25 candidate count")
@@ -131,7 +138,7 @@ class AgentSettings(BaseSettings):
 
     model_provider: ChatModelProvider = Field(
         default="openrouter",
-        description="Chat model provider: 'openai' or 'openrouter'",
+        description="Chat model provider: 'openai', 'openrouter' or 'vercel'",
     )
     default_model: str = Field(
         default="gpt-5.6-luna",
@@ -151,6 +158,11 @@ class AgentSettings(BaseSettings):
         default=None,
         validation_alias="OPENROUTER_API_KEY",
         description="API key used when model_provider is 'openrouter'",
+    )
+    vercel_api_key: str | None = Field(
+        default=None,
+        validation_alias="AI_GATEWAY_API_KEY",
+        description="API key used when model_provider is 'vercel'",
     )
 
 

@@ -17,7 +17,7 @@ from langfuse.langchain import CallbackHandler
 
 sys.path.append(str(Path(__file__).parent))
 
-from config import OPENROUTER_BASE_URL, AgentSettings
+from config import OPENROUTER_BASE_URL, VERCEL_AI_GATEWAY_BASE_URL, AgentSettings
 from tools.catalog_search import catalog_search_tool
 from tools.document_search import document_search_tool
 from tools.financing_calculator import financing_calculator_tool
@@ -68,10 +68,19 @@ def build_chat_model(model_name: str, session_id: str = "") -> ChatOpenAI:
         if not SETTINGS.openai_api_key:
             raise ValueError("OPENAI_API_KEY is not set")
         return ChatOpenAI(model=model_name, api_key=SETTINGS.openai_api_key, **common_kwargs)
+    elif SETTINGS.model_provider == "vercel":
+        if not SETTINGS.vercel_api_key:
+            raise ValueError("AI_GATEWAY_API_KEY is not set")
+        return ChatOpenAI(
+            model=model_name,
+            api_key=SETTINGS.vercel_api_key,
+            base_url=VERCEL_AI_GATEWAY_BASE_URL,
+            **common_kwargs,
+        )
     else:
         raise ValueError(
             f"Unsupported model provider: {SETTINGS.model_provider}. "
-            "Supported providers are 'openrouter' and 'openai'."
+            "Supported providers are 'openrouter', 'openai' and 'vercel'."
         )
 
 

@@ -68,6 +68,9 @@ class TestDocumentSearchSettings:
         openrouter_settings = DocumentSearchSettings(embedding_provider="openrouter")
         assert openrouter_settings.resolved_embedding_model == "openai/text-embedding-3-small"
 
+        vercel_settings = DocumentSearchSettings(embedding_provider="vercel")
+        assert vercel_settings.resolved_embedding_model == "openai/text-embedding-3-small"
+
     def test_openrouter_provider_uses_openrouter_style_model_default(self, monkeypatch):
         monkeypatch.delenv("DOCUMENT_EMBEDDING_MODEL", raising=False)
 
@@ -98,6 +101,13 @@ class TestDocumentSearchSettings:
         monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
 
         assert DocumentSearchSettings().openrouter_api_key is None
+
+    def test_vercel_api_key_read_from_environment(self, monkeypatch):
+        monkeypatch.setenv("AI_GATEWAY_API_KEY", "vg-key")
+
+        settings = DocumentSearchSettings()
+
+        assert settings.vercel_api_key == "vg-key"
 
 
 class TestDatabaseSettings:

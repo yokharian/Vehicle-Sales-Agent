@@ -23,7 +23,7 @@ from langchain_core.tools import tool
 from langchain_openai import OpenAIEmbeddings
 from pydantic import BaseModel, ConfigDict, Field
 
-from config import OPENROUTER_BASE_URL, DocumentSearchSettings
+from config import OPENROUTER_BASE_URL, VERCEL_AI_GATEWAY_BASE_URL, DocumentSearchSettings
 from db.document_loader import dense_search, load_chunks
 
 
@@ -78,6 +78,14 @@ def resolve_embeddings():
             model=model,
             base_url=OPENROUTER_BASE_URL,
             api_key=settings.openrouter_api_key,
+        )
+    if settings.embedding_provider == "vercel":
+        if not settings.vercel_api_key:
+            raise ValueError("AI_GATEWAY_API_KEY is not set")
+        return OpenAIEmbeddings(
+            model=model,
+            base_url=VERCEL_AI_GATEWAY_BASE_URL,
+            api_key=settings.vercel_api_key,
         )
     if not settings.openai_api_key:
         raise ValueError("OPENAI_API_KEY is not set")
