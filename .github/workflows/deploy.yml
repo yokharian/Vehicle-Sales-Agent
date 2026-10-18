@@ -100,6 +100,14 @@ jobs:
     name: Trigger production deploy (Dokploy webhook)
     needs: build-and-push
     runs-on: ubuntu-latest
+    # Runs inside the repository's "Production" environment, so environment
+    # secrets and protection rules apply on top of the repo-level ones.
+    environment: Production
+    # The Production environment's deployment branch policy only admits
+    # master, so release tags publish the image but skip this job instead of
+    # failing the run. To let tags deploy too, add a matching rule to the
+    # environment's deployment policy and remove this gate.
+    if: github.ref == 'refs/heads/master'
     steps:
       - name: Trigger Dokploy compose deploy
         env:
