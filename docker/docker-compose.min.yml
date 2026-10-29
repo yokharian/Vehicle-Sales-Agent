@@ -26,11 +26,11 @@ services:
       - DOCUMENT_EMBEDDING_PROVIDER=${DOCUMENT_EMBEDDING_PROVIDER:-openrouter}
       - DOCUMENT_EMBEDDING_MODEL=${DOCUMENT_EMBEDDING_MODEL:-openai/text-embedding-3-small}
 
-      # NOTE: API keys (OPENAI_API_KEY, OPENROUTER_API_KEY, DOCUMENT_*_API_KEY,
-      # TWILIO_*, LANGFUSE_*, LANGSMITH_API_KEY — needed by the langgraph-api
-      # license check —, COGNITO_*) are delivered unshadowed by
-      # env_file ../.env — interpolating them here yields empty strings that
-      # override the real values.
+      # NOTE: API keys (OPENAI_API_KEY, OPENROUTER_API_KEY, AI_GATEWAY_API_KEY,
+      # DOCUMENT_*_API_KEY, TWILIO_*, LANGFUSE_*, LANGSMITH_API_KEY — needed
+      # by the langgraph-api license check —, COGNITO_*) are delivered
+      # unshadowed by env_file ../.env — interpolating them here yields empty
+      # strings that override the real values.
 
       # Optional Langfuse Tracing
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
