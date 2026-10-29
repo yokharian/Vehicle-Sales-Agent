@@ -20,7 +20,7 @@ services:
 
       # Agent chat model
       - MODEL_PROVIDER=${MODEL_PROVIDER:-openrouter}
-      - DEFAULT_MODEL=${DEFAULT_MODEL:-gpt-5.6-luna}
+      - DEFAULT_MODEL=${DEFAULT_MODEL:-openai/gpt-oss-20b}
 
       # Document search embeddings
       - DOCUMENT_EMBEDDING_PROVIDER=${DOCUMENT_EMBEDDING_PROVIDER:-openrouter}
