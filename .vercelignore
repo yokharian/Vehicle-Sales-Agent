@@ -1,0 +1,15 @@
+.venv
+uv.lock
+pyproject.toml
+.pytest_cache
+.ruff_cache
+.idea
+.git
+.omo
+tests
+docs
+docker
+.github
+ingestion_errors.log
+.env
+.vercel

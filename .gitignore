@@ -293,6 +293,7 @@ celerybeat.pid
 
 # Environments
 .env
+.vercel
 env/
 venv/
 ENV/
@@ -336,3 +337,4 @@ cython_debug/
 # LangGraph dev local persistence
 .langgraph_api/
 
+.env.local
