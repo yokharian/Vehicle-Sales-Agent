@@ -115,6 +115,9 @@ class WhatsAppVehicleAssistant:
             return f"Lo siento, ocurrió un error: {str(e)}"
 
 
+assistant: WhatsAppVehicleAssistant | None = None
+
+
 def create_fastapi_app() -> FastAPI:
     """Create FastAPI application for WhatsApp webhook handling."""
     app = FastAPI(
