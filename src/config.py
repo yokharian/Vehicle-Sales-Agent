@@ -27,12 +27,11 @@ DEFAULT_EMBEDDING_MODELS: dict[str, str] = {
 
 
 def _normalize_postgres_scheme(uri: str | None) -> str | None:
-    """Rewrite the bare `postgres` URL scheme to `postgresql`.
+    """Rewrite Postgres URLs onto the SQLAlchemy driver this project installs.
 
-    Providers and platform tooling (Prisma, LangGraph CLI defaults) emit
-    `postgres://...` URLs, but SQLAlchemy's dialect is named `postgresql`,
-    so passing one through raises `NoSuchModuleError: Can't load plugin:
-    sqlalchemy.dialects:postgres`. An explicit `+driver` suffix is preserved.
+    Bare ``postgres://`` is not a SQLAlchemy dialect. Bare ``postgresql://``
+    lets SQLAlchemy 2.1 import psycopg (v3), which is not a dependency;
+    ``psycopg2-binary`` is. An explicit ``+driver`` suffix is preserved.
     """
     if uri is None:
         return None
@@ -40,8 +39,10 @@ def _normalize_postgres_scheme(uri: str | None) -> str | None:
     if not sep:
         return uri
     if scheme == "postgres" or scheme.startswith("postgres+"):
-        return "postgresql" + scheme[len("postgres") :] + "://" + rest
-    return uri
+        scheme = "postgresql" + scheme[len("postgres") :]
+    if scheme == "postgresql":
+        scheme = "postgresql+psycopg2"
+    return f"{scheme}://{rest}"
 
 
 class DatabaseSettings(BaseSettings):
@@ -49,7 +50,7 @@ class DatabaseSettings(BaseSettings):
 
     Relational reads DATABASE_URI. The vector database reads PGVECTOR_URI
     and defaults to the relational URI when unset (single-database setups).
-    Bare `postgres://` schemes are normalized to `postgresql://`.
+    Bare `postgres://` and `postgresql://` schemes use the psycopg2 driver.
     """
 
     model_config = SettingsConfigDict(

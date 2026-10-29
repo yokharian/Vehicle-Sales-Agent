@@ -111,12 +111,12 @@ class TestDocumentSearchSettings:
 
 
 class TestDatabaseSettings:
-    """Bare `postgres://` schemes are normalized to `postgresql://`."""
+    """Bare Postgres schemes are normalized onto the installed psycopg2 driver."""
 
     def test_normalizes_postgres_scheme(self):
         settings = DatabaseSettings(**{"DATABASE_URI": "postgres://u:p@host:5432/db"})
 
-        assert settings.database_uri == "postgresql://u:p@host:5432/db"
+        assert settings.database_uri == "postgresql+psycopg2://u:p@host:5432/db"
 
     def test_postgres_uri_env_name_is_retired(self):
         settings = DatabaseSettings(
@@ -126,17 +126,17 @@ class TestDatabaseSettings:
             }
         )
 
-        assert settings.database_uri == "postgresql://u:p@host:5432/db"
-
-    def test_preserves_explicit_driver_suffix(self):
-        settings = DatabaseSettings(**{"DATABASE_URI": "postgres+psycopg2://u:p@host:5432/db"})
-
         assert settings.database_uri == "postgresql+psycopg2://u:p@host:5432/db"
 
-    def test_leaves_postgresql_uris_untouched(self):
+    def test_preserves_explicit_driver_suffix(self):
+        settings = DatabaseSettings(**{"DATABASE_URI": "postgres+asyncpg://u:p@host:5432/db"})
+
+        assert settings.database_uri == "postgresql+asyncpg://u:p@host:5432/db"
+
+    def test_bare_postgresql_uses_psycopg2(self):
         settings = DatabaseSettings(**{"DATABASE_URI": "postgresql://u:p@host:5432/db"})
 
-        assert settings.database_uri == "postgresql://u:p@host:5432/db"
+        assert settings.database_uri == "postgresql+psycopg2://u:p@host:5432/db"
 
     def test_normalizes_pgvector_uri(self):
         settings = DatabaseSettings(
@@ -146,7 +146,7 @@ class TestDatabaseSettings:
             }
         )
 
-        assert settings.pgvector_uri == "postgresql://u:p@host:5432/db"
+        assert settings.pgvector_uri == "postgresql+psycopg2://u:p@host:5432/db"
 
     def test_normalized_uri_loads_sqlalchemy_dialect(self):
         settings = DatabaseSettings(**{"DATABASE_URI": "postgres://u:p@host:5432/db"})
