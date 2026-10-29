@@ -284,6 +284,8 @@ python-dotenv==1.2.3
     #   langgraph-cli
     #   pydantic-settings
     #   uvicorn
+python-multipart==0.0.32
+    # via vehicle-sales-agent
 pyyaml==6.0.3
     # via
     #   langchain-classic

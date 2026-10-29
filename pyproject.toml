@@ -17,6 +17,7 @@ dependencies = [
     "langgraph-sdk",
     "pandas",
     "psycopg2-binary",
+    "python-multipart",
     "pydantic",
     "rank-bm25",
     "sqlalchemy",
