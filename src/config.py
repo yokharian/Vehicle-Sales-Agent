@@ -8,13 +8,28 @@ default chat model, so swapping providers never touches tool code.
 from __future__ import annotations
 
 from typing import Literal
+from urllib.parse import quote
 
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 VERCEL_AI_GATEWAY_BASE_URL = "https://ai-gateway.vercel.sh/v1"
+
+# Supabase exposes the same database through several URLs, ordered by
+# preference. The non-pooling one comes first: a pooled session multiplexes
+# connections behind PgBouncer, which breaks startup DDL (CREATE EXTENSION)
+# and long-lived statements.
+SUPABASE_URL_ENV_NAMES = (
+    "POSTGRES_URL_NON_POOLING",
+    "POSTGRES_URL",
+    "POSTGRES_PRISMA_URL",
+)
+
+# Pooler-only query parameters. libpq rejects unknown connection parameters,
+# so they are dropped before the URL reaches SQLAlchemy.
+_POOLER_ONLY_QUERY_PARAMS = frozenset({"pgbouncer", "supa"})
 
 EmbeddingProvider = Literal["openai", "openrouter", "vercel"]
 ChatModelProvider = Literal["openai", "openrouter", "vercel"]
@@ -32,6 +47,7 @@ def _normalize_postgres_scheme(uri: str | None) -> str | None:
     Bare ``postgres://`` is not a SQLAlchemy dialect. Bare ``postgresql://``
     lets SQLAlchemy 2.1 import psycopg (v3), which is not a dependency;
     ``psycopg2-binary`` is. An explicit ``+driver`` suffix is preserved.
+    Pooler-only query parameters are removed because libpq rejects them.
     """
     if uri is None:
         return None
@@ -42,15 +58,45 @@ def _normalize_postgres_scheme(uri: str | None) -> str | None:
         scheme = "postgresql" + scheme[len("postgres") :]
     if scheme == "postgresql":
         scheme = "postgresql+psycopg2"
+    if "?" in rest:
+        base, _, query = rest.partition("?")
+        kept = [
+            pair
+            for pair in query.split("&")
+            if pair and pair.split("=", 1)[0].lower() not in _POOLER_ONLY_QUERY_PARAMS
+        ]
+        rest = f"{base}?{'&'.join(kept)}" if kept else base
     return f"{scheme}://{rest}"
+
+
+def _compose_postgres_uri(
+    host: str | None,
+    user: str | None,
+    password: str | None,
+    database: str | None,
+) -> str | None:
+    """Assemble a Postgres URL from discrete Supabase connection fields."""
+    if not host or not user or not password:
+        return None
+    name = database or "postgres"
+    return (
+        f"postgres://{quote(user, safe='')}:{quote(password, safe='')}"
+        f"@{host}:5432/{name}?sslmode=require"
+    )
 
 
 class DatabaseSettings(BaseSettings):
     """Database connection settings (relational + pgvector vector store).
 
-    Relational reads DATABASE_URI. The vector database reads PGVECTOR_URI
-    and defaults to the relational URI when unset (single-database setups).
-    Bare `postgres://` and `postgresql://` schemes use the psycopg2 driver.
+    Supabase is the source of truth. POSTGRES_URL_NON_POOLING is preferred
+    over the pooled POSTGRES_URL and POSTGRES_PRISMA_URL; when only the
+    discrete POSTGRES_HOST / POSTGRES_USER / POSTGRES_PASSWORD /
+    POSTGRES_DATABASE fields are present, the URL is assembled from them.
+
+    DATABASE_URI and PGVECTOR_URI stay supported as explicit per-deployment
+    overrides (the self-hosted compose stacks and the test harness set them)
+    and win over the Supabase variables when present. The vector database
+    defaults to the relational URI, so a single-database setup needs one URL.
     """
 
     model_config = SettingsConfigDict(
@@ -61,13 +107,33 @@ class DatabaseSettings(BaseSettings):
 
     database_uri: str | None = Field(
         default=None,
-        validation_alias="DATABASE_URI",
+        validation_alias=AliasChoices("DATABASE_URI", *SUPABASE_URL_ENV_NAMES),
         description="Relational PostgreSQL connection (CRUD, tables)",
     )
     pgvector_uri: str | None = Field(
         default=None,
         validation_alias="PGVECTOR_URI",
         description="pgvector connection; defaults to database_uri when unset",
+    )
+    postgres_host: str | None = Field(
+        default=None,
+        validation_alias="POSTGRES_HOST",
+        description="Supabase Postgres host, used when no connection URL is set",
+    )
+    postgres_user: str | None = Field(
+        default=None,
+        validation_alias="POSTGRES_USER",
+        description="Supabase Postgres user, used when no connection URL is set",
+    )
+    postgres_password: str | None = Field(
+        default=None,
+        validation_alias="POSTGRES_PASSWORD",
+        description="Supabase Postgres password, used when no connection URL is set",
+    )
+    postgres_database: str | None = Field(
+        default=None,
+        validation_alias="POSTGRES_DATABASE",
+        description="Supabase Postgres database name, used when no connection URL is set",
     )
     db_echo: bool = Field(
         default=False,
@@ -76,6 +142,67 @@ class DatabaseSettings(BaseSettings):
     )
 
     _normalize_schemes = field_validator("database_uri", "pgvector_uri")(_normalize_postgres_scheme)
+
+    @model_validator(mode="after")
+    def _apply_composed_uri(self) -> DatabaseSettings:
+        if self.database_uri is None:
+            composed = _compose_postgres_uri(
+                self.postgres_host,
+                self.postgres_user,
+                self.postgres_password,
+                self.postgres_database,
+            )
+            if composed is not None:
+                self.database_uri = _normalize_postgres_scheme(composed)
+        if self.pgvector_uri is None:
+            self.pgvector_uri = self.database_uri
+        return self
+
+
+class SupabaseSettings(BaseSettings):
+    """Supabase project credentials.
+
+    Holds the project URL and the API keys Supabase issues for the project.
+    The anon/publishable keys are safe to expose to clients; the secret and
+    service-role keys are server-only.
+    """
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_URL"),
+        description="Supabase project URL",
+    )
+    anon_key: str | None = Field(
+        default=None,
+        validation_alias="SUPABASE_ANON_KEY",
+        description="Supabase anon (public) API key",
+    )
+    publishable_key: str | None = Field(
+        default=None,
+        validation_alias="SUPABASE_PUBLISHABLE_KEY",
+        description="Supabase publishable API key",
+    )
+    secret_key: str | None = Field(
+        default=None,
+        validation_alias="SUPABASE_SECRET_KEY",
+        description="Supabase secret API key (server-only)",
+    )
+    service_role_key: str | None = Field(
+        default=None,
+        validation_alias="SUPABASE_SERVICE_ROLE_KEY",
+        description="Supabase service-role API key (server-only, bypasses RLS)",
+    )
+    jwt_secret: str | None = Field(
+        default=None,
+        validation_alias="SUPABASE_JWT_SECRET",
+        description="Supabase JWT signing secret, used to verify project JWTs",
+    )
 
 
 class DocumentSearchSettings(BaseSettings):

@@ -11,7 +11,7 @@ DB_SETTINGS = DatabaseSettings()
 
 
 class MissingDatabaseURIError(RuntimeError):
-    """Raised when DATABASE_URI is not configured."""
+    """Raised when no PostgreSQL connection is configured."""
 
 
 if DB_SETTINGS.database_uri is None:

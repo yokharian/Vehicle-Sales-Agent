@@ -9,8 +9,8 @@ services:
       - ../.env
     environment:
       # Vehicle catalog + knowledge base (pgvector)
-      - DATABASE_URI=${DATABASE_URI:-postgresql+asyncpg://postgres:postgres@db:5432/langgraph?sslmode=disable}
-      - PGVECTOR_URI=${PGVECTOR_URI:-postgresql+asyncpg://postgres:postgres@db:5432/langgraph?sslmode=disable}
+      - DATABASE_URI=${DATABASE_URI:-postgresql://postgres:postgres@db:5432/langgraph?sslmode=disable}
+      - PGVECTOR_URI=${PGVECTOR_URI:-postgresql://postgres:postgres@db:5432/langgraph?sslmode=disable}
 
       # Agent chat model
       - MODEL_PROVIDER=${MODEL_PROVIDER}
@@ -67,8 +67,8 @@ services:
     env_file:
       - ../.env
     environment:
-      - DATABASE_URI=${DATABASE_URI:-postgresql+asyncpg://postgres:postgres@db:5432/langgraph?sslmode=disable}
-      - PGVECTOR_URI=${PGVECTOR_URI:-postgresql+asyncpg://postgres:postgres@db:5432/langgraph?sslmode=disable}
+      - DATABASE_URI=${DATABASE_URI:-postgresql://postgres:postgres@db:5432/langgraph?sslmode=disable}
+      - PGVECTOR_URI=${PGVECTOR_URI:-postgresql://postgres:postgres@db:5432/langgraph?sslmode=disable}
     volumes:
       - ../data:/app/data
     depends_on:
@@ -86,8 +86,8 @@ services:
     env_file:
       - ../.env
     environment:
-      - DATABASE_URI=${DATABASE_URI}
-      - PGVECTOR_URI=${PGVECTOR_URI:-postgresql+asyncpg://postgres:postgres@db:5432/langgraph?sslmode=disable}
+      - DATABASE_URI=${DATABASE_URI:-postgresql://postgres:postgres@db:5432/langgraph?sslmode=disable}
+      - PGVECTOR_URI=${PGVECTOR_URI:-postgresql://postgres:postgres@db:5432/langgraph?sslmode=disable}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - AI_GATEWAY_API_KEY=${AI_GATEWAY_API_KEY}

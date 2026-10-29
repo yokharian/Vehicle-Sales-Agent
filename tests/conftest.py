@@ -39,6 +39,7 @@ from config import (
     CognitoSettings,
     DatabaseSettings,
     DocumentSearchSettings,
+    SupabaseSettings,
     TwilioSettings,
 )
 from tools import document_search
@@ -59,6 +60,7 @@ def _hermetic_settings(monkeypatch):
         CognitoSettings,
         DatabaseSettings,
         DocumentSearchSettings,
+        SupabaseSettings,
         TwilioSettings,
     ):
         monkeypatch.setattr(

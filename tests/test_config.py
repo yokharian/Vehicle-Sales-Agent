@@ -16,6 +16,7 @@ from config import (
     AgentSettings,
     DatabaseSettings,
     DocumentSearchSettings,
+    SupabaseSettings,
     TwilioSettings,
 )
 
@@ -154,6 +155,144 @@ class TestDatabaseSettings:
         # Raises NoSuchModuleError for the un-normalized `postgres` scheme;
         # building the engine opens no connection.
         assert create_engine(settings.database_uri) is not None
+
+
+class TestSupabaseDatabaseSettings:
+    """Supabase connection variables are the default source of the database URL."""
+
+    @pytest.fixture(autouse=True)
+    def _without_legacy_db_env(self, monkeypatch):
+        monkeypatch.delenv("DATABASE_URI", raising=False)
+        monkeypatch.delenv("PGVECTOR_URI", raising=False)
+
+    def test_non_pooling_url_is_preferred(self):
+        settings = DatabaseSettings(
+            **{
+                "POSTGRES_URL_NON_POOLING": "postgres://u:p@direct:5432/db",
+                "POSTGRES_URL": "postgres://u:p@pooler:6543/db",
+                "POSTGRES_PRISMA_URL": "postgres://u:p@pooler:6543/db",
+            }
+        )
+
+        assert settings.database_uri == "postgresql+psycopg2://u:p@direct:5432/db"
+
+    def test_pooled_url_is_used_when_non_pooling_is_absent(self):
+        settings = DatabaseSettings(
+            **{
+                "POSTGRES_URL": "postgres://u:p@pooler:6543/db",
+                "POSTGRES_PRISMA_URL": "postgres://u:p@pooler:6543/db",
+            }
+        )
+
+        assert settings.database_uri == "postgresql+psycopg2://u:p@pooler:6543/db"
+
+    def test_prisma_url_is_the_last_resort(self):
+        settings = DatabaseSettings(**{"POSTGRES_PRISMA_URL": "postgres://u:p@pooler:6543/db"})
+
+        assert settings.database_uri == "postgresql+psycopg2://u:p@pooler:6543/db"
+
+    def test_pooler_query_parameters_are_dropped(self):
+        settings = DatabaseSettings(
+            **{
+                "POSTGRES_URL": "postgres://u:p@pooler:6543/db?sslmode=require&pgbouncer=true",
+                "POSTGRES_PRISMA_URL": "postgres://u:p@pooler:6543/db?sslmode=require&supa=base-pooler.x",
+            }
+        )
+
+        assert settings.database_uri == "postgresql+psycopg2://u:p@pooler:6543/db?sslmode=require"
+
+    def test_database_uri_overrides_supabase_variables(self):
+        settings = DatabaseSettings(
+            **{
+                "DATABASE_URI": "postgres://u:p@override:5432/db",
+                "POSTGRES_URL_NON_POOLING": "postgres://u:p@direct:5432/db",
+            }
+        )
+
+        assert settings.database_uri == "postgresql+psycopg2://u:p@override:5432/db"
+
+    def test_vector_uri_defaults_to_the_relational_uri(self):
+        settings = DatabaseSettings(**{"POSTGRES_URL_NON_POOLING": "postgres://u:p@direct:5432/db"})
+
+        assert settings.pgvector_uri == settings.database_uri
+
+    def test_vector_uri_can_point_at_another_database(self):
+        settings = DatabaseSettings(
+            **{
+                "POSTGRES_URL_NON_POOLING": "postgres://u:p@direct:5432/db",
+                "PGVECTOR_URI": "postgres://u:p@vectors:5432/other",
+            }
+        )
+
+        assert settings.pgvector_uri == "postgresql+psycopg2://u:p@vectors:5432/other"
+
+    def test_discrete_fields_are_assembled_into_a_url(self):
+        settings = DatabaseSettings(
+            **{
+                "POSTGRES_HOST": "db.project.supabase.co",
+                "POSTGRES_USER": "postgres",
+                "POSTGRES_PASSWORD": "p@ss word",
+                "POSTGRES_DATABASE": "postgres",
+            }
+        )
+
+        assert settings.database_uri == (
+            "postgresql+psycopg2://postgres:p%40ss%20word@db.project.supabase.co:5432/postgres?sslmode=require"
+        )
+
+    def test_discrete_fields_need_a_password(self):
+        settings = DatabaseSettings(
+            **{"POSTGRES_HOST": "db.project.supabase.co", "POSTGRES_USER": "postgres"}
+        )
+
+        assert settings.database_uri is None
+
+    def test_supabase_url_loads_sqlalchemy_dialect(self):
+        settings = DatabaseSettings(**{"POSTGRES_URL_NON_POOLING": "postgres://u:p@direct:5432/db"})
+
+        assert create_engine(settings.database_uri) is not None
+
+
+class TestSupabaseSettings:
+    """Supabase project credentials are read from their environment names."""
+
+    def test_reads_project_url_and_keys(self):
+        settings = SupabaseSettings(
+            **{
+                "NEXT_PUBLIC_SUPABASE_URL": "https://project.supabase.co",
+                "SUPABASE_ANON_KEY": "anon",
+                "SUPABASE_PUBLISHABLE_KEY": "publishable",
+                "SUPABASE_SECRET_KEY": "secret",
+                "SUPABASE_SERVICE_ROLE_KEY": "service-role",
+                "SUPABASE_JWT_SECRET": "jwt",
+            }
+        )
+
+        assert settings.url == "https://project.supabase.co"
+        assert settings.anon_key == "anon"
+        assert settings.publishable_key == "publishable"
+        assert settings.secret_key == "secret"
+        assert settings.service_role_key == "service-role"
+        assert settings.jwt_secret == "jwt"
+
+    def test_missing_keys_default_to_none(self, monkeypatch):
+        for name in (
+            "SUPABASE_ANON_KEY",
+            "SUPABASE_PUBLISHABLE_KEY",
+            "SUPABASE_SECRET_KEY",
+            "SUPABASE_SERVICE_ROLE_KEY",
+            "SUPABASE_JWT_SECRET",
+            "NEXT_PUBLIC_SUPABASE_URL",
+            "SUPABASE_URL",
+        ):
+            monkeypatch.delenv(name, raising=False)
+
+        settings = SupabaseSettings()
+
+        assert settings.url is None
+        assert settings.anon_key is None
+        assert settings.service_role_key is None
+        assert settings.jwt_secret is None
 
 
 class TestAgentSettings:
