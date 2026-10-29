@@ -89,22 +89,7 @@ Configure the Twilio webhook URL: `http://your-server:5000/whatsapp/webhook`
 
 ## ⚙️ Configuration
 
-All configuration is loaded with `pydantic-settings` from `.env` (see [`.env.example`](.env.example) for the full reference):
-
-| Variable | Purpose |
-|---|---|
-| `MODEL_PROVIDER` | Chat provider: `openai` or `openrouter` (default `openrouter`) |
-| `DEFAULT_MODEL` | Chat model (default `gpt-5.6-luna`) |
-| `VERBOSE` | Agent debug output (optional, default `false`) |
-| `OPENAI_API_KEY` / `OPENROUTER_API_KEY` | Provider API keys |
-| `DOCUMENT_EMBEDDING_PROVIDER` | Embedding provider: `openai` or `openrouter` |
-| `DOCUMENT_EMBEDDING_MODEL` | Embedding model (falls back to provider default) |
-| `DATABASE_URI` | PostgreSQL connection string (CRUD, tables) |
-| `PGVECTOR_URI` | pgvector connection string (defaults to `DATABASE_URI` when unset) |
-| `DB_ECHO` | Echo SQL statements (optional, default `false`) |
-| `COGNITO_REGION` / `COGNITO_USER_POOL_ID` | Optional — set both to enable Cognito JWT auth; omit to run open (anonymous) |
-| `COGNITO_APP_CLIENT_ID` | Expected `client_id` claim of access tokens (optional) |
-| `TWILIO_*` | Twilio account SID, auth token, WhatsApp number |
+All configuration is loaded with `pydantic-settings` from `.env` (see [`.env.example`](.env.example) for the full reference)
 
 ## 🔧 How It Works
 
