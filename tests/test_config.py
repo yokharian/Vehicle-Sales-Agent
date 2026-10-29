@@ -211,6 +211,16 @@ class TestSupabaseDatabaseSettings:
 
         assert settings.database_uri == "postgresql+psycopg2://u:p@override:5432/db"
 
+    def test_blank_database_uri_does_not_shadow_supabase(self):
+        settings = DatabaseSettings(
+            **{
+                "DATABASE_URI": "",
+                "POSTGRES_URL_NON_POOLING": "postgres://u:p@direct:5432/db",
+            }
+        )
+
+        assert settings.database_uri == "postgresql+psycopg2://u:p@direct:5432/db"
+
     def test_vector_uri_defaults_to_the_relational_uri(self):
         settings = DatabaseSettings(**{"POSTGRES_URL_NON_POOLING": "postgres://u:p@direct:5432/db"})
 

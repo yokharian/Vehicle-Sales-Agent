@@ -17,16 +17,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 VERCEL_AI_GATEWAY_BASE_URL = "https://ai-gateway.vercel.sh/v1"
 
-# Supabase exposes the same database through several URLs, ordered by
-# preference. The non-pooling one comes first: a pooled session multiplexes
-# connections behind PgBouncer, which breaks startup DDL (CREATE EXTENSION)
-# and long-lived statements.
-SUPABASE_URL_ENV_NAMES = (
-    "POSTGRES_URL_NON_POOLING",
-    "POSTGRES_URL",
-    "POSTGRES_PRISMA_URL",
-)
-
 # Pooler-only query parameters. libpq rejects unknown connection parameters,
 # so they are dropped before the URL reaches SQLAlchemy.
 _POOLER_ONLY_QUERY_PARAMS = frozenset({"pgbouncer", "supa"})
@@ -85,18 +75,37 @@ def _compose_postgres_uri(
     )
 
 
+def _first_configured(*values: str | None) -> str | None:
+    """Return the first value that is set and not blank.
+
+    An empty environment variable means "not configured": the LangGraph runtime
+    exports DATABASE_URI="" for its in-memory edition, and that must not shadow
+    the Supabase variables.
+    """
+    for value in values:
+        if value and value.strip():
+            return value
+    return None
+
+
 class DatabaseSettings(BaseSettings):
     """Database connection settings (relational + pgvector vector store).
 
-    Supabase is the source of truth. POSTGRES_URL_NON_POOLING is preferred
-    over the pooled POSTGRES_URL and POSTGRES_PRISMA_URL; when only the
-    discrete POSTGRES_HOST / POSTGRES_USER / POSTGRES_PASSWORD /
-    POSTGRES_DATABASE fields are present, the URL is assembled from them.
+    Supabase is the source of truth. The connection URL is taken from the first
+    configured value among DATABASE_URI, POSTGRES_URL_NON_POOLING,
+    POSTGRES_URL and POSTGRES_PRISMA_URL; the non-pooling URL comes before the
+    pooled ones because a pooled session multiplexes connections behind
+    PgBouncer, which breaks startup DDL (CREATE EXTENSION) and long-lived
+    statements. When only the discrete POSTGRES_HOST / POSTGRES_USER /
+    POSTGRES_PASSWORD / POSTGRES_DATABASE fields are present, the URL is
+    assembled from them.
 
-    DATABASE_URI and PGVECTOR_URI stay supported as explicit per-deployment
-    overrides (the self-hosted compose stacks and the test harness set them)
-    and win over the Supabase variables when present. The vector database
-    defaults to the relational URI, so a single-database setup needs one URL.
+    An empty variable counts as unset, because the LangGraph runtime exports
+    DATABASE_URI="" for its in-memory edition and that must not shadow the
+    Supabase variables. DATABASE_URI and PGVECTOR_URI stay supported as
+    explicit per-deployment overrides (the self-hosted compose stacks and the
+    test harness set them). The vector database defaults to the relational
+    URI, so a single-database setup needs one URL.
     """
 
     model_config = SettingsConfigDict(
@@ -107,13 +116,28 @@ class DatabaseSettings(BaseSettings):
 
     database_uri: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("DATABASE_URI", *SUPABASE_URL_ENV_NAMES),
+        validation_alias="DATABASE_URI",
         description="Relational PostgreSQL connection (CRUD, tables)",
     )
     pgvector_uri: str | None = Field(
         default=None,
         validation_alias="PGVECTOR_URI",
         description="pgvector connection; defaults to database_uri when unset",
+    )
+    postgres_url_non_pooling: str | None = Field(
+        default=None,
+        validation_alias="POSTGRES_URL_NON_POOLING",
+        description="Supabase connection URL without transaction pooling",
+    )
+    postgres_url: str | None = Field(
+        default=None,
+        validation_alias="POSTGRES_URL",
+        description="Supabase connection URL through the transaction pooler",
+    )
+    postgres_prisma_url: str | None = Field(
+        default=None,
+        validation_alias="POSTGRES_PRISMA_URL",
+        description="Supabase connection URL through the transaction pooler (Prisma form)",
     )
     postgres_host: str | None = Field(
         default=None,
@@ -145,17 +169,23 @@ class DatabaseSettings(BaseSettings):
 
     @model_validator(mode="after")
     def _apply_composed_uri(self) -> DatabaseSettings:
-        if self.database_uri is None:
-            composed = _compose_postgres_uri(
+        resolved = _first_configured(
+            self.database_uri,
+            self.postgres_url_non_pooling,
+            self.postgres_url,
+            self.postgres_prisma_url,
+        )
+        if resolved is None:
+            resolved = _compose_postgres_uri(
                 self.postgres_host,
                 self.postgres_user,
                 self.postgres_password,
                 self.postgres_database,
             )
-            if composed is not None:
-                self.database_uri = _normalize_postgres_scheme(composed)
-        if self.pgvector_uri is None:
-            self.pgvector_uri = self.database_uri
+        self.database_uri = _normalize_postgres_scheme(resolved)
+
+        vector = _first_configured(self.pgvector_uri)
+        self.pgvector_uri = _normalize_postgres_scheme(vector) or self.database_uri
         return self
 
 
