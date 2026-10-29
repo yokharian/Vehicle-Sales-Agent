@@ -1,6 +1,5 @@
 .venv
 uv.lock
-pyproject.toml
 .pytest_cache
 .ruff_cache
 .idea

@@ -97,6 +97,7 @@ uv run --env-file .env python src/whatsapp_server.py --host 0.0.0.0 --port 5000
 uv run --env-file .env python scripts/ingest_csv.py data/sample_vehicles.csv --create-tables
 uv run --env-file .env python scripts/index_documents.py       # --file <path> for one doc, --force to rebuild
 docker compose up --build                                     # app + pgvector; ingests on startup
+vercel deploy --prod                                          # builds the root Dockerfile, serves it with Fluid Compute
 ```
 
 CI (`.github/workflows/deploy.yml`) builds, pushes and cosign-signs the image on `master`, `v*.*.*` tags and manual dispatch — it never runs the test suite.
