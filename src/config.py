@@ -330,7 +330,7 @@ class CognitoSettings(BaseSettings):
     Optional: when both `region` and `user_pool_id` are set, requests must
     carry a Cognito access token as `Authorization: Bearer <jwt>`, validated
     against the user pool's JWKS endpoint plus issuer, expiry, token_use and
-    client identity. When unset, the server runs open under a single
+    the accepted client ids. When unset, the server runs open under a single
     anonymous identity (e.g. local pgvector-only setups).
     """
 
@@ -349,10 +349,25 @@ class CognitoSettings(BaseSettings):
         default=None,
         description="Cognito user pool ID; unset disables JWT auth (server runs open)",
     )
-    app_client_id: str | None = Field(
+    app_client_ids: str | None = Field(
         default=None,
-        description="Expected `client_id` claim of access tokens; unset skips the check",
+        validation_alias=AliasChoices("COGNITO_APP_CLIENT_IDS", "COGNITO_APP_CLIENT_ID"),
+        description=(
+            "Comma-separated `client_id` claims accepted in access tokens "
+            "(for example the registered and guest app clients); unset skips the check"
+        ),
     )
+
+    @property
+    def expected_app_client_ids(self) -> frozenset[str]:
+        """Accepted `client_id` values; an empty set means accept any client."""
+        if not self.app_client_ids:
+            return frozenset()
+        return frozenset(
+            client_id.strip()
+            for client_id in self.app_client_ids.split(",")
+            if client_id.strip()
+        )
 
     @property
     def enabled(self) -> bool:

@@ -7,7 +7,7 @@ checked against the user pool's JWKS endpoint (RS256, fetched once and
 cached by `PyJWKClient`) along with the issuer
 (`https://cognito-idp.<region>.amazonaws.com/<user_pool_id>`), the expiry
 (30s leeway for clock skew), the `token_use` claim (`access`) and the
-`client_id` when `COGNITO_APP_CLIENT_ID` is configured — and resources
+`client_id` when `COGNITO_APP_CLIENT_IDS` (comma-separated) is configured — and resources
 (threads, runs) are scoped to the caller so conversations stay private per
 user. When the user pool is unset the server runs open: every request
 shares one anonymous identity and no AWS infrastructure is needed (the
@@ -17,7 +17,7 @@ token as the bearer.
 
 Environment (see `config.py` / `.env.example`):
   - COGNITO_REGION + COGNITO_USER_POOL_ID (optional; set both to enable JWT auth)
-  - COGNITO_APP_CLIENT_ID (optional; enforce the token's client_id)
+  - COGNITO_APP_CLIENT_IDS (optional; comma-separated client_id allowlist)
 """
 
 import asyncio
@@ -67,7 +67,8 @@ def _decode_token(token: str) -> dict:
     )
     if payload.get("token_use") != "access":
         raise jwt.InvalidTokenError("Expected a Cognito access token")
-    if cognito.app_client_id and payload.get("client_id") != cognito.app_client_id:
+    expected_client_ids = cognito.expected_app_client_ids
+    if expected_client_ids and payload.get("client_id") not in expected_client_ids:
         raise jwt.InvalidTokenError("Token was issued to a different app client")
     return payload
 
