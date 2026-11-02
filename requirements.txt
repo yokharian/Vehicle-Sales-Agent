@@ -383,7 +383,7 @@ unidecode==1.4.0
     # via vehicle-sales-agent
 urllib3==2.8.0
     # via requests
-uuid-utils==0.17.1
+uuid-utils==1.2.0
     # via
     #   langchain-core
     #   langgraph-api
