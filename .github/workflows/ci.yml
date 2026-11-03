@@ -1,0 +1,23 @@
+name: ci
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v7
+      - run: uv sync --locked
+      - run: uvx ruff@0.9.10 check .
+      - run: uvx ruff@0.9.10 format --check .
+      - run: uv run pytest -q
