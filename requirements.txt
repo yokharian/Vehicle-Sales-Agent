@@ -174,7 +174,7 @@ langsmith==0.14.16
     #   langgraph-api
 markdownify==1.2.3
     # via vehicle-sales-agent
-multidict==6.9.1
+multidict==7.2.1
     # via
     #   aiohttp
     #   yarl
