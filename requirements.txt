@@ -400,7 +400,7 @@ watchfiles==1.3.0
     # via
     #   langgraph-api
     #   uvicorn
-websockets==16.1.1
+websockets==17.3
     # via
     #   langgraph-api
     #   langgraph-sdk
