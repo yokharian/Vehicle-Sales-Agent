@@ -1,6 +1,6 @@
 aiohappyeyeballs==2.7.1
     # via aiohttp
-aiohttp==3.14.4
+aiohttp==3.14.5
     # via
     #   aiohttp-retry
     #   langchain-community
@@ -31,7 +31,7 @@ beautifulsoup4==4.15.0
     # via
     #   markdownify
     #   vehicle-sales-agent
-certifi==2026.10.19
+certifi==2026.10.23
     # via
     #   httpcore
     #   httpx
@@ -40,34 +40,34 @@ certifi==2026.10.19
     #   vehicle-sales-agent
 cffi==2.1.1 ; platform_python_implementation != 'PyPy'
     # via cryptography
-charset-normalizer==3.5.1
+charset-normalizer==3.5.2
     # via requests
 click==8.5.0
     # via
     #   langgraph-cli
     #   uvicorn
-cryptography==50.0.1
+cryptography==50.0.2
     # via
     #   langgraph-api
     #   pyjwt
 distro==1.9.0
     # via langsmith
-fastapi==0.141.1
+fastapi==0.162.0
     # via vehicle-sales-agent
 frozenlist==1.8.0
     # via
     #   aiohttp
     #   aiosignal
-googleapis-common-protos==1.75.5
+googleapis-common-protos==1.76.0
     # via opentelemetry-exporter-otlp-proto-http
-grpcio==1.81.1
+grpcio==1.85.0
     # via
     #   grpcio-health-checking
     #   grpcio-tools
     #   langgraph-api
-grpcio-health-checking==1.81.1
+grpcio-health-checking==1.85.0
     # via langgraph-api
-grpcio-tools==1.81.1
+grpcio-tools==1.85.0
     # via langgraph-api
 h11==0.16.0
     # via
@@ -76,9 +76,9 @@ h11==0.16.0
     #   uvicorn
 httpcore==1.0.9
     # via httpx
-httpcore2==2.13.1 ; sys_platform != 'emscripten'
+httpcore2==2.16.0 ; sys_platform != 'emscripten'
     # via httpx2
-httptools==0.8.0
+httptools==0.9.0
     # via
     #   langgraph-api
     #   uvicorn
@@ -91,7 +91,7 @@ httpx==0.28.1
     #   langgraph-sdk
 httpx-sse==0.4.3
     # via langchain-community
-httpx2==2.13.1
+httpx2==2.16.0
     # via
     #   langsmith
     #   openai
@@ -104,13 +104,13 @@ idna==3.20
     #   httpx2
     #   requests
     #   yarl
-jiter==0.17.0
+jiter==0.18.0
     # via openai
-jsonpatch==1.33
+jsonpatch==1.38
     # via langchain-core
-jsonpointer==3.1.1
+jsonpointer==3.6
     # via jsonpatch
-jsonschema-rs==0.44.1
+jsonschema-rs==0.60.3
     # via langgraph-api
 langchain==1.4.7
     # via vehicle-sales-agent
@@ -120,7 +120,7 @@ langchain-classic==1.0.8
     #   vehicle-sales-agent
 langchain-community==0.4.2
     # via vehicle-sales-agent
-langchain-core==1.7.0
+langchain-core==1.7.3
     # via
     #   langchain
     #   langchain-classic
@@ -133,7 +133,7 @@ langchain-core==1.7.0
     #   langgraph-prebuilt
     #   langgraph-sdk
     #   vehicle-sales-agent
-langchain-openai==1.7.2
+langchain-openai==1.7.3
     # via vehicle-sales-agent
 langchain-protocol==0.0.20
     # via
@@ -146,27 +146,27 @@ langchain-text-splitters==1.1.3
     #   vehicle-sales-agent
 langfuse==4.15.6
     # via vehicle-sales-agent
-langgraph==1.2.16
+langgraph==1.2.18
     # via
     #   langchain
     #   langgraph-api
     #   langgraph-runtime-inmem
     #   vehicle-sales-agent
-langgraph-checkpoint==4.3.0
+langgraph-checkpoint==4.3.1
     # via
     #   langgraph
     #   langgraph-api
     #   langgraph-prebuilt
     #   langgraph-runtime-inmem
-langgraph-prebuilt==1.1.0
+langgraph-prebuilt==1.1.1
     # via langgraph
-langgraph-sdk==0.4.8
+langgraph-sdk==0.4.10
     # via
     #   langgraph
     #   langgraph-api
     #   langgraph-cli
     #   vehicle-sales-agent
-langsmith==0.14.12
+langsmith==0.14.16
     # via
     #   langchain-classic
     #   langchain-community
@@ -178,14 +178,14 @@ multidict==6.9.1
     # via
     #   aiohttp
     #   yarl
-numpy==2.5.3
+numpy==2.5.4
     # via
     #   langchain-community
     #   pandas
     #   rank-bm25
-openai==3.22.0
+openai==3.41.0
     # via langchain-openai
-opentelemetry-api==1.45.1
+opentelemetry-api==1.45.2
     # via
     #   langfuse
     #   langgraph-api
@@ -194,34 +194,34 @@ opentelemetry-api==1.45.1
     #   opentelemetry-exporter-prometheus
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
-opentelemetry-exporter-otlp-proto-common==1.42.1
+opentelemetry-exporter-otlp-proto-common==1.45.2
     # via opentelemetry-exporter-otlp-proto-http
-opentelemetry-exporter-otlp-proto-http==1.42.1
+opentelemetry-exporter-otlp-proto-http==1.45.2
     # via
     #   langfuse
     #   langgraph-api
     #   langsmith
-opentelemetry-exporter-prometheus==0.63b1
+opentelemetry-exporter-prometheus==0.66b2
     # via langgraph-api
-opentelemetry-proto==1.42.1
+opentelemetry-proto==1.45.2
     # via
     #   opentelemetry-exporter-otlp-proto-common
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-sdk==1.42.1
+opentelemetry-sdk==1.45.2
     # via
     #   langfuse
     #   langgraph-api
     #   langsmith
     #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-exporter-prometheus
-opentelemetry-semantic-conventions==0.63b1
+opentelemetry-semantic-conventions==0.66b2
     # via opentelemetry-sdk
-orjson==3.12.0
+orjson==3.13.0
     # via
     #   langgraph-api
     #   langgraph-sdk
     #   langsmith
-ormsgpack==1.12.2
+ormsgpack==1.13.0
     # via langgraph-checkpoint
 packaging==26.3
     # via
@@ -249,9 +249,9 @@ protobuf==6.33.6
     #   opentelemetry-proto
 psycopg2-binary==2.9.13
     # via vehicle-sales-agent
-pycparser==3.0 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
+pycparser==3.12 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
     # via cffi
-pydantic==2.14.1
+pydantic==2.14.2
     # via
     #   fastapi
     #   langchain
@@ -264,9 +264,9 @@ pydantic==2.14.1
     #   pydantic-settings
     #   sqlmodel
     #   vehicle-sales-agent
-pydantic-core==2.50.1
+pydantic-core==2.50.2
     # via pydantic
-pydantic-settings==2.16.1
+pydantic-settings==2.16.2
     # via
     #   langchain-community
     #   vehicle-sales-agent
@@ -279,7 +279,7 @@ python-dateutil==2.9.0.post0
     # via
     #   croniter
     #   pandas
-python-dotenv==1.2.3
+python-dotenv==1.2.4
     # via
     #   langgraph-cli
     #   pydantic-settings
@@ -307,7 +307,7 @@ requests==2.34.2
     #   twilio
 requests-toolbelt==1.0.0
     # via langsmith
-setuptools==84.1.0
+setuptools==84.2.1
     # via grpcio-tools
 six==1.17.0
     # via
@@ -327,20 +327,20 @@ sqlalchemy==2.1.6
     #   vehicle-sales-agent
 sqlmodel==0.0.48
     # via vehicle-sales-agent
-starlette==1.7.0
+starlette==1.10.0
     # via
     #   fastapi
     #   langgraph-api
     #   langgraph-runtime-inmem
     #   sse-starlette
-tenacity==9.1.4
+tenacity==9.2.1
     # via
     #   langchain-community
     #   langchain-core
     #   langgraph-api
 tiktoken==0.14.0
     # via langchain-openai
-truststore==0.10.4
+truststore==0.10.5
     # via
     #   httpcore2
     #   httpx2
@@ -377,7 +377,7 @@ typing-inspection==0.4.4
     #   fastapi
     #   pydantic
     #   pydantic-settings
-tzdata==2026.4 ; sys_platform == 'emscripten' or sys_platform == 'win32'
+tzdata==2026.6 ; sys_platform == 'emscripten' or sys_platform == 'win32'
     # via pandas
 unidecode==1.4.0
     # via vehicle-sales-agent
@@ -392,7 +392,7 @@ uvicorn==0.54.0
     # via
     #   langgraph-api
     #   vehicle-sales-agent
-uvloop==0.22.1 ; sys_platform != 'win32'
+uvloop==0.23.0 ; sys_platform != 'win32'
     # via
     #   langgraph-api
     #   uvicorn
@@ -406,9 +406,9 @@ websockets==16.1.1
     #   langgraph-sdk
     #   langsmith
     #   uvicorn
-wrapt==2.5.0
+wrapt==2.5.2
     # via langfuse
-xxhash==4.0.1
+xxhash==4.0.2
     # via
     #   langgraph
     #   langsmith
