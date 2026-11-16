@@ -42,7 +42,7 @@ cffi==2.1.1 ; platform_python_implementation != 'PyPy'
     # via cryptography
 charset-normalizer==3.5.2
     # via requests
-click==8.5.0
+click==8.5.1
     # via
     #   langgraph-cli
     #   uvicorn
@@ -52,7 +52,7 @@ cryptography==50.0.2
     #   pyjwt
 distro==1.9.0
     # via langsmith
-fastapi==0.162.0
+fastapi==0.162.2
     # via vehicle-sales-agent
 frozenlist==1.8.0
     # via
@@ -104,15 +104,15 @@ idna==3.20
     #   httpx2
     #   requests
     #   yarl
-jiter==0.18.0
+jiter==0.19.0
     # via openai
-jsonpatch==1.39
+jsonpatch==1.44
     # via langchain-core
-jsonpointer==3.7
+jsonpointer==3.10
     # via jsonpatch
-jsonschema-rs==0.60.3
+jsonschema-rs==0.61.0
     # via langgraph-api
-langchain==1.4.7
+langchain==1.4.9
     # via vehicle-sales-agent
 langchain-classic==1.0.8
     # via
@@ -120,7 +120,7 @@ langchain-classic==1.0.8
     #   vehicle-sales-agent
 langchain-community==0.4.2
     # via vehicle-sales-agent
-langchain-core==1.7.3
+langchain-core==1.7.6
     # via
     #   langchain
     #   langchain-classic
@@ -133,9 +133,9 @@ langchain-core==1.7.3
     #   langgraph-prebuilt
     #   langgraph-sdk
     #   vehicle-sales-agent
-langchain-openai==1.7.3
+langchain-openai==1.7.4
     # via vehicle-sales-agent
-langchain-protocol==0.0.20
+langchain-protocol==0.0.21
     # via
     #   langchain-core
     #   langgraph-api
@@ -144,9 +144,9 @@ langchain-text-splitters==1.1.3
     # via
     #   langchain-classic
     #   vehicle-sales-agent
-langfuse==5.1.0
+langfuse==5.2.0
     # via vehicle-sales-agent
-langgraph==1.2.19
+langgraph==1.2.20
     # via
     #   langchain
     #   langgraph-api
@@ -160,13 +160,13 @@ langgraph-checkpoint==4.3.1
     #   langgraph-runtime-inmem
 langgraph-prebuilt==1.1.1
     # via langgraph
-langgraph-sdk==0.4.11
+langgraph-sdk==0.4.14
     # via
     #   langgraph
     #   langgraph-api
     #   langgraph-cli
     #   vehicle-sales-agent
-langsmith==0.14.16
+langsmith==0.14.17
     # via
     #   langchain-classic
     #   langchain-community
@@ -183,7 +183,7 @@ numpy==2.5.4
     #   langchain-community
     #   pandas
     #   rank-bm25
-openai==3.42.1
+openai==3.46.0
     # via langchain-openai
 opentelemetry-api==1.45.2
     # via
@@ -221,14 +221,14 @@ orjson==3.13.0
     #   langgraph-api
     #   langgraph-sdk
     #   langsmith
-ormsgpack==1.13.0
+ormsgpack==1.13.1
     # via langgraph-checkpoint
 packaging==26.3
     # via
     #   langchain-core
     #   langfuse
     #   langsmith
-pandas==3.1.0
+pandas==3.1.1
     # via vehicle-sales-agent
 pgvector==0.5.1
     # via vehicle-sales-agent
@@ -251,7 +251,7 @@ psycopg2-binary==2.9.13
     # via vehicle-sales-agent
 pycparser==3.12 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
     # via cffi
-pydantic==2.14.2
+pydantic==2.14.3
     # via
     #   fastapi
     #   langchain
@@ -264,7 +264,7 @@ pydantic==2.14.2
     #   pydantic-settings
     #   sqlmodel
     #   vehicle-sales-agent
-pydantic-core==2.50.2
+pydantic-core==2.50.4
     # via pydantic
 pydantic-settings==2.16.2
     # via
@@ -294,7 +294,7 @@ pyyaml==6.0.3
     #   uvicorn
 rank-bm25==0.2.2
     # via vehicle-sales-agent
-regex==2026.9.29
+regex==2026.11.8
     # via tiktoken
 requests==2.34.2
     # via
@@ -319,7 +319,7 @@ sniffio==1.3.1
     #   openai
 soupsieve==4.1.1
     # via beautifulsoup4
-sqlalchemy==2.1.6
+sqlalchemy==2.1.8
     # via
     #   langchain-classic
     #   langchain-community
@@ -345,7 +345,7 @@ truststore==0.10.5
     #   httpcore2
     #   httpx2
     #   langgraph-api
-twilio==9.12.0
+twilio==9.13.0
     # via vehicle-sales-agent
 typing-extensions==4.16.0
     # via
@@ -372,7 +372,7 @@ typing-extensions==4.16.0
     #   sqlmodel
     #   starlette
     #   typing-inspection
-typing-inspection==0.4.4
+typing-inspection==0.4.5
     # via
     #   fastapi
     #   pydantic
