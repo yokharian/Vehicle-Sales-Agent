@@ -1,4 +1,6 @@
 # Never bake secrets or local state into images
+# Docker build ignore rules for the backend/ build context
+# (deploy.yml builds with context: ./backend, so this file is the one in effect)
 .env
 .env.*
 !.env.example
@@ -18,6 +20,6 @@ __pycache__
 *.pyo
 .venv
 
-# Docker files themselves (built from repo-root context)
+# Docker files themselves (built from the backend context)
 docker
 Dockerfile
