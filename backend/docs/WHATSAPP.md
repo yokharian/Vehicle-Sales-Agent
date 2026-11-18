@@ -4,6 +4,9 @@ This document explains how to connect the vehicle sales assistant to WhatsApp
 through Twilio: account setup, environment configuration, server startup, and
 webhook wiring.
 
+All commands below run from `backend/`, the directory that holds `src/`,
+`scripts/` and `.env.example`.
+
 ## Overview
 
 The assistant communicates over WhatsApp bidirectionally using Twilio:
@@ -19,7 +22,7 @@ The assistant communicates over WhatsApp bidirectionally using Twilio:
 1. A **Twilio account** — https://www.twilio.com
 2. API keys for the agent providers (OpenAI or OpenRouter)
 3. PostgreSQL with pgvector, running and seeded (see the
-   [README](../README.md) Quick Start or [docs/DOCKER.md](DOCKER.md))
+   [README](../README.md) Quick Start or [DOCKER.md](DOCKER.md))
 
 ## Twilio Setup
 
@@ -30,7 +33,7 @@ The assistant communicates over WhatsApp bidirectionally using Twilio:
 
 ## Environment Variables
 
-Create a `.env` file in the project root (see [`.env.example`](../.env.example)):
+Create a `.env` file in the backend directory (see [`.env.example`](../.env.example)):
 
 The Twilio variables are loaded by `TwilioSettings` (pydantic-settings) and
 the WhatsApp number must use the `whatsapp:+<number>` prefix format.
@@ -38,14 +41,14 @@ the WhatsApp number must use the `whatsapp:+<number>` prefix format.
 ## Running the Server
 
 ```bash
-uv run --env-file .env python src/whatsapp_server.py --host 0.0.0.0 --port 5000
+uv run --env-file .env src/whatsapp_server.py --host 0.0.0.0 --port 5000
 ```
 
 Options: `--host` (default `0.0.0.0`), `--port` (default `5000`), and
 `--debug` to run uvicorn with debug logging.
 
 Or deploy everything with Docker Compose (container starts with CSV ingestion
-and then serves the WhatsApp server) — see [docs/DOCKER.md](DOCKER.md).
+and then serves the WhatsApp server) — see [DOCKER.md](DOCKER.md).
 
 ## Webhook Configuration
 
@@ -126,7 +129,7 @@ The test suite covers the server routes and agent wiring with testcontainers
 ## Production Deployment
 
 - Deploy with Docker Compose or a container platform — see
-  [docs/DOCKER.md](DOCKER.md)
+  [DOCKER.md](DOCKER.md)
 - Use environment-specific configuration and a secrets manager
 - Set up logging, monitoring, and alerting on the `/health` endpoint
 - Use a production PostgreSQL instance with backups (the Compose `db` service

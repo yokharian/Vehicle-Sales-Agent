@@ -11,21 +11,23 @@ AI vehicle sales assistant for WhatsApp (Spanish-language): a LangGraph agent th
 ## STRUCTURE
 
 ```
-vehicle-sales-agent/
-├── src/            # app core — flat-module imports (config, agent, db.*, tools.*), never src.*
-│   ├── agent.py            # LangGraph graph + SYSTEM_PROMPT + chat()
-│   ├── whatsapp_server.py  # FastAPI webhook server (entry point)
-│   ├── config.py           # all pydantic-settings classes
-│   ├── auth.py             # optional Cognito JWT auth
-│   ├── db/                 # engines, Vehicle model, DAO, pgvector chunk store
-│   └── tools/              # three @tool functions the agent calls
-├── scripts/        # ingest_csv.py, index_documents.py, html2text_cli.py (CLI entry points)
-├── tests/          # pytest suite; Docker/testcontainers required
-├── docs/           # binding ADRs + PRDs, DOCKER.md, WHATSAPP.md
-├── data/           # sample_vehicles.csv + documents/kavak.md (the knowledge corpus)
-├── docker/         # WhatsApp/minimal compose stacks
-├── langgraph.json  # graph: src/agent.py:agent, auth: src/auth.py:auth
-└── Dockerfile      # uv-based image
+vehicle-sales-agent/            # repo root, see the root AGENTS.md
+├── backend/                    # this directory: the Python service
+│   ├── src/         # app core — flat-module imports (config, agent, db.*, tools.*), never src.*
+│   │   ├── agent.py            # LangGraph graph + SYSTEM_PROMPT + chat()
+│   │   ├── whatsapp_server.py  # FastAPI webhook server (entry point)
+│   │   ├── config.py           # all pydantic-settings classes
+│   │   ├── auth.py             # optional Cognito JWT auth
+│   │   ├── db/                 # engines, Vehicle model, DAO, pgvector chunk store
+│   │   └── tools/              # three @tool functions the agent calls
+│   ├── scripts/     # ingest_csv.py, index_documents.py, html2text_cli.py (CLI entry points)
+│   ├── tests/       # pytest suite; Docker/testcontainers required
+│   ├── docs/        # binding ADRs + PRDs, DOCKER.md, WHATSAPP.md
+│   ├── data/        # sample_vehicles.csv + documents/kavak.md (the knowledge corpus)
+│   ├── docker/      # WhatsApp/minimal compose stacks
+│   ├── langgraph.json  # graph: src/agent.py:agent, auth: src/auth.py:auth
+│   └── Dockerfile   # uv-based image
+└── web/                        # the Next.js chat app
 ```
 
 ## WHERE TO LOOK
@@ -93,14 +95,17 @@ uv sync                                                      # install deps (Pyt
 uv run pytest                                                # full suite — REQUIRES a running Docker daemon
 uv run pytest tests/test_document_loader.py                   # single module
 uvx ruff check . && uvx ruff format .                         # ruff is configured but NOT installed in .venv
-uv run --env-file .env python src/whatsapp_server.py --host 0.0.0.0 --port 5000
-uv run --env-file .env python scripts/ingest_csv.py data/sample_vehicles.csv --create-tables
-uv run --env-file .env python scripts/index_documents.py       # --file <path> for one doc, --force to rebuild
+uv run --env-file .env src/whatsapp_server.py --host 0.0.0.0 --port 5000
+uv run --env-file .env scripts/ingest_csv.py data/sample_vehicles.csv --create-tables
+uv run --env-file .env scripts/index_documents.py             # --file <path> for one doc, --force to rebuild
+uv run langgraph dev                                         # LangGraph API used by the web app in web/
 docker compose up --build                                     # app + pgvector; ingests on startup
-vercel deploy --prod                                          # builds the root Dockerfile, serves it with Fluid Compute
+vercel deploy --prod                                          # builds backend/Dockerfile, serves it with Fluid Compute
 ```
 
-CI (`.github/workflows/deploy.yml`) builds, pushes and cosign-signs the image on `master`, `v*.*.*` tags and manual dispatch — it never runs the test suite.
+All of these run from `backend/`, which owns `pyproject.toml` and `uv.lock`. The repo root has no Python project; its other stack is the Next.js app in `web/` (see the root `AGENTS.md`).
+
+CI (`.github/workflows/deploy.yml`) builds the image with `context: ./backend` and `file: ./backend/Dockerfile`, pushes it and cosign-signs it on `master`, `v*.*.*` tags and manual dispatch — it never runs the test suite.
 
 ## NOTES
 
@@ -110,3 +115,4 @@ CI (`.github/workflows/deploy.yml`) builds, pushes and cosign-signs the image on
 - `.aiignore` excludes `.env` and `.venv/`; `.env` exists locally and is gitignored.
 - ADR-006 is a Draft; ADR-001 to ADR-005 are Accepted and binding. Each tool has a PRD that defines its contract.
 - `docs/diagrams/` holds SVG/Excalidraw sources; `ingestion_errors.log` is a runtime artifact.
+- The Python tree moved into `backend/` on the monorepo branch. Paths in this file are relative to `backend/`; the Docker build context is `backend/`, not the repo root.

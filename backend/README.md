@@ -31,9 +31,11 @@ An AI-powered vehicle sales assistant that chats with customers over WhatsApp: i
 1. **Clone the repository and install dependencies:**
    ```bash
    git clone <repository-url>
-   cd vehicle-sales-agent
-   uv sync
+   cd vehicle-sales-agent/backend
+   uv sync --locked
    ```
+
+   Every command in this README runs from `backend/`, the directory that holds `pyproject.toml`, `uv.lock` and the Docker image.
 
 2. **Set up environment variables:**
    ```bash
@@ -48,14 +50,22 @@ An AI-powered vehicle sales assistant that chats with customers over WhatsApp: i
 
 4. **Ingest the vehicle catalog and index the knowledge base:**
    ```bash
-   uv run --env-file .env python scripts/ingest_csv.py data/sample_vehicles.csv --create-tables
-   uv run --env-file .env python scripts/index_documents.py
+   uv run --env-file .env scripts/ingest_csv.py data/sample_vehicles.csv --create-tables
+   uv run --env-file .env scripts/index_documents.py
    ```
 
 5. **Run the WhatsApp server:**
    ```bash
-   uv run --env-file .env python src/whatsapp_server.py --host 0.0.0.0 --port 5000
+   uv run --env-file .env src/whatsapp_server.py --host 0.0.0.0 --port 5000
    ```
+
+### Running the LangGraph API
+
+The web app in `web/` talks to the LangGraph API, which reads `langgraph.json` in this directory:
+
+```bash
+uv run langgraph dev
+```
 
 ### Using Docker Compose
 
@@ -69,7 +79,7 @@ The container runs CSV ingestion on startup, then serves the WhatsApp server on 
 
 ### Deploying to Vercel (Fluid Compute)
 
-Vercel builds the repository-root [`Dockerfile`](Dockerfile) and serves it with Fluid Compute enabled. That image is
+Vercel builds [`backend/Dockerfile`](Dockerfile) and serves it with Fluid Compute enabled. That image is
 the LangGraph API server: it exposes the agent graph (`src/agent.py:agent`) and the Cognito-authenticated API, with
 the catalog, document and financing tools reading Supabase Postgres.
 
@@ -83,7 +93,7 @@ the catalog, document and financing tools reading Supabase Postgres.
 }
 ```
 
-The project must use the Container preset - Vercel keeps a detected framework otherwise, and the root `Dockerfile`
+The project must use the Container preset - Vercel keeps a detected framework otherwise, and `backend/Dockerfile`
 is only built when no other framework is selected. The project settings also need:
 
 | Setting | Value |
@@ -165,7 +175,7 @@ When running the WhatsApp server:
 ## 📁 Project Structure
 
 ```
-vehicle-sales-agent/
+backend/
 │
 ├── src/
 │   ├── agent.py                     # LangGraph agent (catalog + document search tools)
@@ -188,9 +198,12 @@ vehicle-sales-agent/
 │
 ├── docs/                            # Documentation (see below)
 ├── tests/                           # Test suite (testcontainers)
+├── pyproject.toml                   # Python project (owns uv.lock)
 ├── Dockerfile                       # uv-based container image
 └── docker-compose.yml               # App + PostgreSQL/pgvector stack
 ```
+
+The repository root holds the other stack, the Next.js chat app in `web/`, plus the shared CI workflows and the root `README.md`.
 
 ## 📚 Documentation
 
