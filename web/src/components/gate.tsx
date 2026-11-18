@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Ghost } from "lucide-react";
 
 import type { ReactNode } from "react";
-import { LoginForm } from "@/components/login-form";
+import { AuthPanel } from "@/components/auth-panel";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/providers/Auth";
 import { useTurnstileToken } from "@/components/turnstile-widget";
@@ -82,12 +82,9 @@ export function Gate({ children }: { children: ReactNode }) {
     return (
       <div className="flex min-h-svh w-full flex-col items-center justify-center p-6 md:p-10">
         <div className="w-full max-w-sm">
-          <LoginForm
-            captchaElement={captchaElement}
-            captchaToken={captchaToken}
-            onCaptchaConsumed={resetCaptcha}
-          />
-          <div className="mt-3 flex flex-col items-center gap-1">
+          <AuthPanel turnstileToken={captchaToken} />
+          <div className="mt-3 flex flex-col items-center gap-2">
+            {captchaElement}
             <Button
               className="w-full"
               disabled={guestPending || !captchaToken}

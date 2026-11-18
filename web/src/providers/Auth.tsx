@@ -7,17 +7,7 @@ import React, {
   useEffect,
   useState,
 } from "react";
-import {
-  fetchAuthSession,
-  signIn,
-  signUp,
-  confirmSignUp,
-  resendSignUpCode,
-  resetPassword,
-  confirmResetPassword,
-  signOut,
-  getCurrentUser,
-} from "aws-amplify/auth";
+import { fetchAuthSession, getCurrentUser, signOut } from "aws-amplify/auth";
 import { Hub } from "aws-amplify/utils";
 import {
   configureRegisteredAuth,
@@ -48,31 +38,6 @@ type AuthContextValue = {
   session: AuthSession | null;
   loading: boolean;
   isGuest: boolean;
-  signIn: (
-    username: string,
-    password: string,
-    captchaToken?: string,
-  ) => Promise<{ error: string | null; challengeName?: string }>;
-  signUp: (
-    username: string,
-    password: string,
-    email: string,
-    captchaToken?: string,
-  ) => Promise<{ error: string | null; isSignUpComplete?: boolean }>;
-  confirmSignUp: (
-    username: string,
-    code: string,
-  ) => Promise<{ error: string | null }>;
-  resendSignUpCode: (username: string) => Promise<{ error: string | null }>;
-  resetPassword: (
-    username: string,
-    captchaToken?: string,
-  ) => Promise<{ error: string | null; isPasswordReset?: boolean }>;
-  confirmResetPassword: (
-    username: string,
-    code: string,
-    newPassword: string,
-  ) => Promise<{ error: string | null }>;
   signInAnonymously: (captchaToken?: string) => Promise<{
     error: string | null;
   }>;
@@ -192,140 +157,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [adoptGuestTokens]);
 
-  const signInFn = useCallback(
-    async (
-      username: string,
-      password: string,
-      captchaToken?: string,
-    ): Promise<{ error: string | null; challengeName?: string }> => {
-      try {
-        configureRegisteredAuth();
-        const result = await signIn({ username, password });
-        if (result.isSignedIn) {
-          return { error: null };
-        }
-        const nextStep = result.nextStep;
-        const challengeName =
-          nextStep &&
-          typeof nextStep === "object" &&
-          "challengeName" in nextStep
-            ? (nextStep as { challengeName?: string }).challengeName
-            : undefined;
-        return { error: null, challengeName };
-      } catch (error: unknown) {
-        return {
-          error: error instanceof Error ? error.message : "Sign in failed",
-        };
-      }
-    },
-    [],
-  );
-
-  const signUpFn = useCallback(
-    async (
-      username: string,
-      password: string,
-      email: string,
-      captchaToken?: string,
-    ): Promise<{ error: string | null; isSignUpComplete?: boolean }> => {
-      try {
-        configureRegisteredAuth();
-        const result = await signUp({
-          username,
-          password,
-          options: {
-            userAttributes: { email },
-            validationData: captchaToken
-              ? { turnstileToken: captchaToken }
-              : undefined,
-          },
-        });
-        return { error: null, isSignUpComplete: result.isSignUpComplete };
-      } catch (error: unknown) {
-        return {
-          error: error instanceof Error ? error.message : "Sign up failed",
-        };
-      }
-    },
-    [],
-  );
-
-  const confirmSignUpFn = useCallback(
-    async (
-      username: string,
-      code: string,
-    ): Promise<{ error: string | null }> => {
-      try {
-        configureRegisteredAuth();
-        await confirmSignUp({ username, confirmationCode: code });
-        return { error: null };
-      } catch (error: unknown) {
-        return {
-          error: error instanceof Error ? error.message : "Confirmation failed",
-        };
-      }
-    },
-    [],
-  );
-
-  const resendSignUpCodeFn = useCallback(
-    async (username: string): Promise<{ error: string | null }> => {
-      try {
-        configureRegisteredAuth();
-        await resendSignUpCode({ username });
-        return { error: null };
-      } catch (error: unknown) {
-        return {
-          error: error instanceof Error ? error.message : "Resend failed",
-        };
-      }
-    },
-    [],
-  );
-
-  const resetPasswordFn = useCallback(
-    async (
-      username: string,
-      captchaToken?: string,
-    ): Promise<{ error: string | null; isPasswordReset?: boolean }> => {
-      try {
-        configureRegisteredAuth();
-        const result = await resetPassword({ username });
-        return { error: null, isPasswordReset: result.isPasswordReset };
-      } catch (error: unknown) {
-        return {
-          error:
-            error instanceof Error ? error.message : "Reset password failed",
-        };
-      }
-    },
-    [],
-  );
-
-  const confirmResetPasswordFn = useCallback(
-    async (
-      username: string,
-      code: string,
-      newPassword: string,
-    ): Promise<{ error: string | null }> => {
-      try {
-        configureRegisteredAuth();
-        await confirmResetPassword({
-          username,
-          confirmationCode: code,
-          newPassword,
-        });
-        return { error: null };
-      } catch (error: unknown) {
-        return {
-          error:
-            error instanceof Error ? error.message : "Confirm reset failed",
-        };
-      }
-    },
-    [],
-  );
-
   /**
    * Guests are minted by the backend (`createGuest`): the pool password is
    * burned server-side, so this is the only way in — there is no sign-in
@@ -378,12 +209,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         session,
         loading,
         isGuest,
-        signIn: signInFn,
-        signUp: signUpFn,
-        confirmSignUp: confirmSignUpFn,
-        resendSignUpCode: resendSignUpCodeFn,
-        resetPassword: resetPasswordFn,
-        confirmResetPassword: confirmResetPasswordFn,
         signInAnonymously: signInAnonymouslyFn,
         signOut: signOutFn,
         guestExpired,

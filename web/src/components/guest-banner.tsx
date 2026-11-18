@@ -22,7 +22,7 @@ function GuestBanner() {
           type="button"
           variant="outline"
         >
-          <Link href="/auth/sign-up">Create account</Link>
+          <Link href="/auth/login">Create account</Link>
         </Button>
         <Button
           onClick={() => signOut()}

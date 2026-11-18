@@ -1,7 +1,5 @@
 "use client";
 
-import "./markdown-styles.css";
-
 import {
   MarkdownTextPrimitive,
   memoizeMarkdownComponents,
@@ -228,7 +226,10 @@ const defaultComponents = memoizeMarkdownComponents({
 
     return (
       <code
-        className={cn("rounded font-semibold", className)}
+        className={cn(
+          "bg-muted rounded px-1.5 py-0.5 text-[0.9em] font-semibold",
+          className,
+        )}
         {...props}
       >
         {children}
@@ -240,7 +241,6 @@ const defaultComponents = memoizeMarkdownComponents({
 const MarkdownTextImpl = () => {
   return (
     <MarkdownTextPrimitive
-      className="markdown-content"
       remarkPlugins={[remarkGfm, remarkMath]}
       rehypePlugins={[rehypeKatex]}
       preprocess={normalizeMathDelimiters}

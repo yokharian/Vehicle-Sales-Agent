@@ -21,7 +21,6 @@ import { CurrentUserAvatar } from "@/components/current-user-avatar";
 import { GuestBanner } from "@/components/guest-banner";
 import { LogoutButton } from "@/components/logout-button";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
   Tooltip,
@@ -113,12 +112,12 @@ export function ChatShell() {
                   id="hide-tool-calls"
                   onCheckedChange={setHideToolCalls}
                 />
-                <Label
+                <label
                   className="text-muted-foreground hidden text-sm md:inline"
                   htmlFor="hide-tool-calls"
                 >
                   Hide Tool Calls
-                </Label>
+                </label>
               </div>
               <CurrentUserAvatar />
               <LogoutButton />

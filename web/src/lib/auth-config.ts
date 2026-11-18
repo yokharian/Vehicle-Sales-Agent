@@ -1,6 +1,8 @@
 import { Amplify } from "aws-amplify";
 import outputs from "../../amplify_outputs.json";
 
+Amplify.configure(outputs);
+
 /**
  * Contract of the backend's `amplify_outputs.json` custom payload: one user
  * pool for both flows, the Amplify-managed identity pool for registered

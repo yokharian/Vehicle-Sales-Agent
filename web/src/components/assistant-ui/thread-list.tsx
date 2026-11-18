@@ -77,7 +77,7 @@ export function ThreadList() {
   return (
     <>
       {chatHistoryOpen ? (
-        <aside className="shadow-inner-right hidden h-full w-[300px] shrink-0 flex-col items-start justify-start gap-6 border-r-[1px] border-slate-300 lg:flex">
+        <aside className="hidden h-full w-[300px] shrink-0 flex-col items-start justify-start gap-6 border-r-[1px] border-slate-300 shadow-[inset_-9px_0_6px_-1px_rgb(0_0_0/0.02)] lg:flex">
           <div className="flex w-full items-center justify-between px-4 pt-1.5">
             <Button
               className="hover:bg-gray-100"
