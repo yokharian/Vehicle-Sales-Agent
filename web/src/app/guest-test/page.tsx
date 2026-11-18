@@ -33,21 +33,21 @@ export default function GuestTestPage() {
   return (
     <main className="mx-auto flex max-w-xl flex-col gap-4 p-8">
       <h1 className="text-xl font-semibold">Guest session MVP</h1>
-      <p className="text-sm text-muted-foreground">
+      <p className="text-muted-foreground text-sm">
         Isolated test of the Turnstile widget + AppSync createGuest call. No
-        chat API is involved, so a failure here is a guest-session problem and
-        a success here points at the backend.
+        chat API is involved, so a failure here is a guest-session problem and a
+        success here points at the backend.
       </p>
       <div>
         {element ?? (
-          <p className="text-sm text-destructive">
+          <p className="text-destructive text-sm">
             Turnstile widget not configured (NEXT_PUBLIC_TURNSTILE_SITE_KEY
             missing).
           </p>
         )}
       </div>
       <button
-        className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
+        className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm disabled:opacity-50"
         disabled={!token || pending}
         onClick={run}
         type="button"
@@ -59,16 +59,19 @@ export default function GuestTestPage() {
             : "Waiting for Turnstile..."}
       </button>
       {result ? (
-        <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs">
+        <pre className="bg-muted overflow-x-auto rounded-md p-3 text-xs">
           {result}
         </pre>
       ) : null}
       {error ? (
-        <pre className="overflow-x-auto rounded-md bg-destructive/10 p-3 text-xs text-destructive">
+        <pre className="bg-destructive/10 text-destructive overflow-x-auto rounded-md p-3 text-xs">
           {error}
         </pre>
       ) : null}
-      <Link className="text-sm underline" href="/">
+      <Link
+        className="text-sm underline"
+        href="/"
+      >
         Back to chat
       </Link>
     </main>
