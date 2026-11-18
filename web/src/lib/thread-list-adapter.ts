@@ -6,9 +6,10 @@ type ThreadMetadata = Awaited<ReturnType<RemoteThreadListAdapter["fetch"]>>;
 
 const TITLE_MAX_LENGTH = 60;
 const UNTITLED = "Untitled";
+const LOCAL_THREAD_ID_PREFIX = "__LOCALID_";
 
 const getMessages = (values: Thread["values"]): unknown[] => {
-  if (Array.isArray(values)) return [];
+  if (!values || Array.isArray(values)) return [];
 
   const messages = values.messages;
   return Array.isArray(messages) ? messages : [];
@@ -80,6 +81,11 @@ export function createThreadListAdapter(
       return { threads: threads.map(toThreadMetadata) };
     },
     initialize: async (threadId) => {
+      if (threadId.startsWith(LOCAL_THREAD_ID_PREFIX)) {
+        const thread = await client.threads.create({ graphId: assistantId });
+        return { remoteId: thread.thread_id, externalId: thread.thread_id };
+      }
+
       await client.threads.create({
         threadId,
         graphId: assistantId,
