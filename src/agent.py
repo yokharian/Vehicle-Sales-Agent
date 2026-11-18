@@ -18,9 +18,12 @@ from langfuse.langchain import CallbackHandler
 sys.path.append(str(Path(__file__).parent))
 
 from config import OPENROUTER_BASE_URL, VERCEL_AI_GATEWAY_BASE_URL, AgentSettings
+from telemetry import init_sentry
 from tools.catalog_search import catalog_search_tool
 from tools.document_search import document_search_tool
 from tools.financing_calculator import financing_calculator_tool
+
+init_sentry()
 
 SYSTEM_PROMPT = """Eres un asistente virtual especializado en búsqueda de vehículos y atención al cliente para una empresa automotriz que actúa como agente comercial de Kavak. Asistes al cliente en su búsqueda y respondes preguntas generales sobre la empresa, siempre usando solo las herramientas disponibles.
 
