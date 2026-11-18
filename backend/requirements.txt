@@ -9,7 +9,7 @@ aiohttp-retry==2.9.1
     # via twilio
 aiosignal==1.4.0
     # via aiohttp
-annotated-doc==0.0.5
+annotated-doc==0.0.6
     # via fastapi
 annotated-types==0.8.0
     # via pydantic
@@ -52,7 +52,7 @@ cryptography==50.0.2
     #   pyjwt
 distro==1.9.0
     # via langsmith
-fastapi==0.162.2
+fastapi==0.162.4
     # via vehicle-sales-agent
 frozenlist==1.8.0
     # via
@@ -106,13 +106,13 @@ idna==3.20
     #   yarl
 jiter==0.19.0
     # via openai
-jsonpatch==1.44
+jsonpatch==1.47
     # via langchain-core
-jsonpointer==3.10
+jsonpointer==3.12
     # via jsonpatch
-jsonschema-rs==0.61.0
+jsonschema-rs==0.61.1
     # via langgraph-api
-langchain==1.4.9
+langchain==1.5.0
     # via vehicle-sales-agent
 langchain-classic==1.0.8
     # via
@@ -120,7 +120,7 @@ langchain-classic==1.0.8
     #   vehicle-sales-agent
 langchain-community==0.4.2
     # via vehicle-sales-agent
-langchain-core==1.7.6
+langchain-core==1.8.0
     # via
     #   langchain
     #   langchain-classic
@@ -183,7 +183,7 @@ numpy==2.5.4
     #   langchain-community
     #   pandas
     #   rank-bm25
-openai==3.46.0
+openai==3.49.0
     # via langchain-openai
 opentelemetry-api==1.45.2
     # via
@@ -294,7 +294,7 @@ pyyaml==6.0.3
     #   uvicorn
 rank-bm25==0.2.2
     # via vehicle-sales-agent
-regex==2026.11.8
+regex==2026.11.9
     # via tiktoken
 requests==2.34.2
     # via
@@ -325,7 +325,7 @@ sqlalchemy==2.1.8
     #   langchain-community
     #   sqlmodel
     #   vehicle-sales-agent
-sqlmodel==0.0.48
+sqlmodel==0.0.49
     # via vehicle-sales-agent
 starlette==1.10.0
     # via
@@ -408,7 +408,7 @@ websockets==17.4
     #   uvicorn
 wrapt==2.5.2
     # via langfuse
-xxhash==4.0.2
+xxhash==4.1.0
     # via
     #   langgraph
     #   langsmith
