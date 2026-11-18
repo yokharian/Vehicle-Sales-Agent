@@ -22,7 +22,7 @@ There is no Python manifest or npm workspace at the repo root. Every command run
 ## Prerequisites
 
 - Python 3.12 and [`uv`](https://docs.astral.sh/uv/)
-- Node.js and pnpm 10.5.1 (through `corepack enable`)
+- Node.js 22 with Corepack. pnpm 10.5.1 is pinned in `web/package.json` under `packageManager`, so `corepack pnpm ...` works without installing pnpm globally.
 - Docker and Docker Compose, for the backend stack and for the test suite
 - A model provider key (OpenAI or OpenRouter) for chat and embeddings
 - Twilio credentials for the WhatsApp path
@@ -64,9 +64,11 @@ uv run pytest
 
 ```bash
 cd web
-pnpm install
-pnpm dev
+corepack pnpm install
+corepack pnpm dev
 ```
+
+Corepack downloads the pinned pnpm release on first use. If pnpm is already installed globally, plain `pnpm install` and `pnpm dev` are equivalent; the commands here use `corepack pnpm` so they also work on a machine without a global pnpm.
 
 The build needs these values, read from `web/.env.local` locally and from GitHub secrets in CI:
 
@@ -79,24 +81,27 @@ The build needs these values, read from `web/.env.local` locally and from GitHub
 
 ```bash
 cd web
-pnpm build            # static export into web/out
-pnpm lint
-pnpm format:check
+corepack pnpm build            # static export into web/out
+corepack pnpm lint
+corepack pnpm format:check
 ```
 
 ## CI and deploy
 
-- **`.github/workflows/ci.yml`** runs on pushes to `master` and on pull requests. It installs uv, syncs the locked dependencies, checks the code with ruff and runs the pytest suite. The job sets `working-directory: backend`, so every step runs inside `backend/`.
+- **`.github/workflows/ci.yml`** runs on pushes to `master` and on pull requests. A `changes` job uses `dorny/paths-filter@v3` to decide which stack changed; the backend job runs for `backend/**` and the web job for `web/**` (both also rerun when the workflow file changes).
+  - The backend job sets `working-directory: backend` and runs `uv sync --locked`, `uvx ruff@0.9.10 check .`, `uvx ruff@0.9.10 format --check .` and `uv run pytest -q`.
+  - The web job sets `working-directory: web`, installs Node 22 and pnpm 10.5.1 with `pnpm/action-setup`, caches the pnpm store, and runs `pnpm install --frozen-lockfile`, `pnpm format:check`, `pnpm lint` and `pnpm build`. The job supplies dummy public values so the build needs no secrets: `NEXT_PUBLIC_API_URL=https://example.invalid`, `NEXT_PUBLIC_ASSISTANT_ID=agent`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA` and `AMPLIFY_OUTPUTS_JSON='{"auth":{}}'`.
 - **`.github/workflows/deploy.yml`** builds the backend image from `backend/Dockerfile` with the `./backend` build context, pushes it to GitHub Container Registry on `master`, on `v*.*.*` tags and on manual dispatch, and signs the digest with cosign.
-- **`.github/workflows/web-deploy.yml`** builds the static export and publishes it to Amplify Hosting through the manual deployment API. It runs on pushes that touch `web/` and on manual dispatch. The Amplify app has no connected repository and auto-build disabled, so GitHub Actions is the only builder and publisher.
+- **`.github/workflows/web-deploy.yml`** builds the static export and publishes it to Amplify Hosting through the manual deployment API. It runs on pushes to `master` that touch `web/**` or the workflow file, and on manual dispatch; it never runs on pull requests. The job uses the `Preview` environment and the steps are: checkout, write `web/amplify_outputs.json` from `secrets.AMPLIFY_OUTPUTS_JSON`, `pnpm install`, `pnpm build`, zip `web/out`, upload the artifact, authenticate with `secrets.AWS_DEPLOY_ROLE_ARN`, then `amplify create-deployment`, upload, `start-deployment` and poll `get-job`. The Amplify app has no connected repository and auto-build disabled, so GitHub Actions is the only builder and publisher.
+- **Dependabot** tracks `uv` and `docker` under `/backend`, `npm` under `/web`, and the GitHub Actions used by these workflows. Minor and patch updates are grouped; Dependabot enables auto-merge for non-major pull requests.
 
 ## AWS provisioning precondition
 
-The web app talks to AWS hosted resources, and CI creates none of them.
+The web app talks to AWS hosted resources, and CI creates none of them. Provision them once before the first `web-deploy.yml` run; the workflow fails at the AWS steps until they exist.
 
 - **Amazon Cognito user pool** (us-east-1) with a registered app client and a guest app client. The registered client backs sign-in and sign-up, the guest client backs the "Continue as guest" flow. The backend validates access tokens against the pool JWKS once `COGNITO_REGION` and `COGNITO_USER_POOL_ID` are set, and runs open while they are unset.
 - **Amplify app** for hosting the static export, created with no connected repository, no auto branch creation and `enableAutoBuild: false` on its branch.
-- **GitHub secrets and variables**: secrets `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_ASSISTANT_ID`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `AMPLIFY_OUTPUTS_JSON` and `AWS_DEPLOY_ROLE_ARN`; variables `AMPLIFY_APP_ID`, `AMPLIFY_BRANCH` and `AWS_REGION`.
+- **GitHub secrets and variables**: secrets `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_ASSISTANT_ID`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `AMPLIFY_OUTPUTS_JSON` and `AWS_DEPLOY_ROLE_ARN`; variables `AMPLIFY_APP_ID`, `AMPLIFY_BRANCH` and `AWS_REGION`. The deploy role must trust the GitHub Actions OIDC provider and be allowed to call the Amplify hosting deployment APIs on that app.
 
 The Postgres database is Supabase rather than AWS, but the `pgvector` extension has to be enabled there before the document search works.
 
