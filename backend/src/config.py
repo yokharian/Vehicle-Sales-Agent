@@ -394,3 +394,51 @@ class TwilioSettings(BaseSettings):
     account_sid: str | None = Field(default=None, validation_alias="TWILIO_ACCOUNT_SID")
     auth_token: str | None = Field(default=None, validation_alias="TWILIO_AUTH_TOKEN")
     whatsapp_number: str | None = Field(default=None, validation_alias="TWILIO_WHATSAPP_NUMBER")
+
+
+class SentrySettings(BaseSettings):
+    """Sentry SDK configuration (error monitoring, tracing, agent tracing).
+
+    The DSN is the only value needed to switch Sentry on; without it the SDK
+    stays disabled so local runs and tests never reach the network. Trace
+    sampling follows the deployment environment unless overridden: every
+    trace outside production, a tenth of them in production.
+    """
+
+    model_config = SettingsConfigDict(
+        env_prefix="SENTRY_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    dsn: str | None = Field(
+        default=None,
+        description="Sentry project DSN; unset keeps the SDK disabled",
+    )
+    environment: str = Field(
+        default="development",
+        validation_alias=AliasChoices("SENTRY_ENVIRONMENT", "VERCEL_ENV"),
+        description="Environment tag attached to events (defaults to VERCEL_ENV)",
+    )
+    release: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("SENTRY_RELEASE", "VERCEL_GIT_COMMIT_SHA"),
+        description="Release tag attached to events (defaults to VERCEL_GIT_COMMIT_SHA)",
+    )
+    traces_sample_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Trace sample rate; None samples by environment",
+    )
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.dsn)
+
+    @property
+    def resolved_traces_sample_rate(self) -> float:
+        if self.traces_sample_rate is not None:
+            return self.traces_sample_rate
+        return 0.1 if self.environment == "production" else 1.0
