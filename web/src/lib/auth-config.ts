@@ -54,19 +54,6 @@ function applyIdentityPool(identityPoolId: string | undefined): void {
   });
 }
 
-/**
- * Registered session: the Amplify-managed identity pool. `fetchAuthSession()`
- * resolves AWS credentials from here, so this is the app's default config.
- */
 export function configureRegisteredAuth(): void {
   applyIdentityPool(getAppAuthConfig()?.identityPoolId);
-}
-
-/**
- * Guest bootstrap: `createGuest` runs before the caller holds any token, so
- * it needs unauthenticated credentials from the dedicated guest pool. Call
- * `configureRegisteredAuth()` afterwards to restore the default.
- */
-export function configureGuestDataAuth(): void {
-  applyIdentityPool(getAppAuthConfig()?.guestIdentityPoolId);
 }
