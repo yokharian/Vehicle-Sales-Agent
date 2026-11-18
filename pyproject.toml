@@ -32,6 +32,10 @@ dependencies = [
     "pydantic-settings>=2.15.0",
     "langfuse",
     "langgraph-cli[inmem]>=0.4.32",
+    "posthog>=8.0.1",
+    "opentelemetry-api>=1.45.2",
+    "opentelemetry-sdk>=1.45.2",
+    "opentelemetry-exporter-otlp>=1.45.2",
 ]
 
 [dependency-groups]

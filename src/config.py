@@ -7,6 +7,7 @@ default chat model, so swapping providers never touches tool code.
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Literal
 from urllib.parse import quote
 
@@ -380,6 +381,25 @@ class CognitoSettings(BaseSettings):
     @property
     def jwks_uri(self) -> str:
         return f"{self.issuer}/.well-known/jwks.json"
+
+
+class PostHogSettings(BaseSettings):
+    """Optional server-side PostHog configuration."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    project_token: str | None = Field(default=None, validation_alias="POSTHOG_PROJECT_TOKEN")
+    host: str | None = Field(default=None, validation_alias="POSTHOG_HOST")
+
+
+@lru_cache
+def get_posthog_settings() -> PostHogSettings:
+    """Return cached PostHog settings for application initialization."""
+    return PostHogSettings()
 
 
 class TwilioSettings(BaseSettings):

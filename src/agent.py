@@ -7,13 +7,17 @@ This agent can:
 - Provide intelligent recommendations based on user preferences
 """
 
+import os
 import sys
+import uuid
 from pathlib import Path
 from typing import Any
 
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
-from langfuse.langchain import CallbackHandler
+from langfuse.langchain import CallbackHandler as LangfuseCallbackHandler
+from posthog import Posthog
+from posthog.ai.langchain import CallbackHandler as PostHogCallbackHandler
 
 sys.path.append(str(Path(__file__).parent))
 
@@ -42,7 +46,7 @@ CONTEXTO OPERACIONAL:
 - Comportamiento: Comprender entradas con errores o expresiones vagas y responder de forma directa en lo comercial y cordial en lo informativo."""
 
 SETTINGS = AgentSettings()
-langfuse_handler = CallbackHandler()
+langfuse_handler = LangfuseCallbackHandler()
 
 
 def build_chat_model(model_name: str, session_id: str = "") -> ChatOpenAI:
@@ -97,7 +101,7 @@ agent = create_agent(
 ).with_config({"callbacks": [langfuse_handler]})
 
 
-def chat(message: str) -> dict[str, Any]:
+def chat(message: str, posthog_client: Posthog | None = None) -> dict[str, Any]:
     """
     Chat with the agent.
 
@@ -109,8 +113,23 @@ def chat(message: str) -> dict[str, Any]:
     """
     try:
         inputs = {"messages": [{"role": "user", "content": message}]}
+        callback_handlers = []
+        if posthog_client:
+            callback_handlers.append(
+                PostHogCallbackHandler(
+                    client=posthog_client,
+                    properties={
+                        "$ai_session_id": f"process-{os.getpid()}",
+                        "$ai_provider": SETTINGS.model_provider,
+                    },
+                    trace_id=str(uuid.uuid4()),
+                )
+            )
 
-        response = agent.invoke(inputs)
+        response = agent.invoke(
+            inputs,
+            config={"callbacks": callback_handlers} if callback_handlers else None,
+        )
 
         messages = response.get("messages", [])
         if messages:

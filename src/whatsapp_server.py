@@ -5,13 +5,21 @@ FastAPI application that receives Twilio WhatsApp messages, forwards them
 to the LangChain agent, and answers with TwiML responses.
 """
 
+import atexit
 import logging
+import os
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, AsyncIterator, Dict
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import Response
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+from posthog import Posthog
+from posthog.integrations.asgi import PosthogASGIMiddleware
 from pydantic import BaseModel
 from twilio.rest import Client
 from twilio.twiml.messaging_response import MessagingResponse
@@ -19,10 +27,14 @@ from twilio.twiml.messaging_response import MessagingResponse
 sys.path.append(str(Path(__file__).parent))
 
 from agent import chat
-from config import TwilioSettings
+from config import TwilioSettings, get_posthog_settings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+posthog_log_logger = logging.getLogger("posthog.vehicle_sales.logs")
+posthog_log_logger.setLevel(logging.INFO)
+posthog_log_logger.propagate = False
+_posthog_log_provider: LoggerProvider | None = None
 
 
 class SendMessageRequest(BaseModel):
@@ -84,11 +96,16 @@ class WhatsAppVehicleAssistant:
             logger.error(f"Failed to send WhatsApp message: {e}")
             return {"success": False, "error": str(e)}
 
-    def handle_whatsapp_message(self, from_number: str, message_body: str) -> str:
+    def handle_whatsapp_message(
+        self,
+        from_number: str,
+        message_body: str,
+        posthog_client: Posthog | None = None,
+    ) -> str:
         """Handle incoming WhatsApp messages and generate responses."""
         try:
             logger.info(f"Received WhatsApp message from {from_number}: {message_body}")
-            response = self._handle_with_ai_agent(message_body)
+            response = self._handle_with_ai_agent(message_body, posthog_client)
 
             if len(response) > 1600:
                 response = response[:1600] + "...\n\n[Respuesta truncada]"
@@ -102,10 +119,10 @@ class WhatsAppVehicleAssistant:
             return error_msg
 
     @staticmethod
-    def _handle_with_ai_agent(message: str) -> str:
+    def _handle_with_ai_agent(message: str, posthog_client: Posthog | None = None) -> str:
         """Handle message using the AI agent."""
         try:
-            result = chat(message)
+            result = chat(message, posthog_client)
             if result["success"]:
                 return str(result["response"])
             else:
@@ -118,13 +135,94 @@ class WhatsAppVehicleAssistant:
 assistant: WhatsAppVehicleAssistant | None = None
 
 
+def _create_posthog_log_provider() -> LoggerProvider | None:
+    """Configure a dedicated logger that exports only PostHog log lines."""
+    global _posthog_log_provider
+
+    if _posthog_log_provider:
+        return _posthog_log_provider
+
+    settings = get_posthog_settings()
+    if not settings.project_token or not settings.host:
+        return None
+
+    logger_provider = LoggerProvider()
+    exporter = OTLPLogExporter(
+        endpoint=f"{settings.host.rstrip('/')}/i/v1/logs",
+        headers={"Authorization": f"Bearer {settings.project_token}"},
+        timeout=3,
+    )
+    logger_provider.add_log_record_processor(
+        BatchLogRecordProcessor(exporter, export_timeout_millis=3000)
+    )
+    posthog_log_logger.addHandler(LoggingHandler(logger_provider=logger_provider))
+    _posthog_log_provider = logger_provider
+    posthog_log_logger.info("posthog_log_export_configured")
+    return logger_provider
+
+
+def _create_posthog_client() -> Posthog | None:
+    """Create the optional process-scoped PostHog client."""
+    settings = get_posthog_settings()
+    missing_variables = [
+        name
+        for name, value in (
+            ("POSTHOG_PROJECT_TOKEN", settings.project_token),
+            ("POSTHOG_HOST", settings.host),
+        )
+        if not value
+    ]
+    if missing_variables:
+        if os.getenv("VERCEL_ENV") != "production":
+            for variable in missing_variables:
+                logger.warning(
+                    "%s variable required by PostHog is missing or un-configured, "
+                    "this causes events to be silently missed. This error stops "
+                    "appearing once %s is configured",
+                    variable,
+                    variable,
+                )
+        return None
+
+    return Posthog(
+        project_api_key=settings.project_token,
+        host=settings.host,
+        enable_exception_autocapture=True,
+        privacy_mode=False,
+    )
+
+
 def create_fastapi_app() -> FastAPI:
     """Create FastAPI application for WhatsApp webhook handling."""
+    posthog_client = _create_posthog_client()
+    posthog_log_provider = _create_posthog_log_provider()
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        yield
+        if posthog_client:
+            try:
+                posthog_client.flush()
+            except Exception:
+                logger.exception("Failed to flush PostHog events during shutdown")
+        if posthog_log_provider:
+            try:
+                posthog_log_provider.force_flush(timeout_millis=3000)
+                posthog_log_provider.shutdown()
+            except Exception:
+                logger.exception("Failed to flush PostHog logs during shutdown")
+
     app = FastAPI(
         title="WhatsApp Vehicle Assistant",
         description="AI-powered vehicle search via WhatsApp using Twilio",
         version="1.0.0",
+        lifespan=lifespan,
     )
+    app.state.posthog_client = posthog_client
+
+    if posthog_client:
+        app.add_middleware(PosthogASGIMiddleware, posthog=posthog_client)
+        atexit.register(posthog_client.shutdown)
 
     @app.post("/whatsapp/webhook")
     async def whatsapp_webhook(request: Request):
@@ -144,7 +242,28 @@ def create_fastapi_app() -> FastAPI:
             if not assistant:
                 assistant = WhatsAppVehicleAssistant()
 
-            response_text = assistant.handle_whatsapp_message(from_number, message_body)
+            posthog_client = request.app.state.posthog_client
+            response_text = assistant.handle_whatsapp_message(
+                from_number,
+                message_body,
+                posthog_client,
+            )
+
+            if posthog_client:
+                posthog_client.capture(
+                    "whatsapp_message_processed",
+                    properties={
+                        "message_length": len(message_body),
+                        "response_length": len(response_text),
+                    },
+                )
+            posthog_log_logger.info(
+                "whatsapp_message_processed",
+                extra={
+                    "message_length": len(message_body),
+                    "response_length": len(response_text),
+                },
+            )
 
             twiml_response = MessagingResponse()
             twiml_response.message(response_text)
@@ -168,7 +287,7 @@ def create_fastapi_app() -> FastAPI:
         return HealthResponse(status="healthy", service="whatsapp-vehicle-assistant")
 
     @app.post("/send-message")
-    async def send_message(request_data: SendMessageRequest):
+    async def send_message(request: Request, request_data: SendMessageRequest):
         """Send a WhatsApp message via API."""
         try:
             global assistant
@@ -176,6 +295,17 @@ def create_fastapi_app() -> FastAPI:
                 assistant = WhatsAppVehicleAssistant()
 
             result = assistant.send_whatsapp_message(request_data.to_number, request_data.message)
+            posthog_client = request.app.state.posthog_client
+            if posthog_client and result.get("success"):
+                posthog_client.capture(
+                    "outbound_message_sent",
+                    properties={"provider_status": result.get("status")},
+                )
+            if result.get("success"):
+                posthog_log_logger.info(
+                    "outbound_message_sent",
+                    extra={"provider_status": result.get("status")},
+                )
             return result
 
         except Exception as e:
