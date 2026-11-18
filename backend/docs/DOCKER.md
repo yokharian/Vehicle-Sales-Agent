@@ -4,6 +4,9 @@ This document explains how to run the Commercial Agent with Docker: the
 application stack for development and deployment, and the Docker requirement
 for running the test suite.
 
+All commands below run from `backend/`, the directory that holds the
+`Dockerfile`, `docker-compose.yml` and `.env.example`.
+
 ## Prerequisites
 
 1. **Docker** and **Docker Compose** installed
@@ -17,7 +20,7 @@ for running the test suite.
 ## Environment Variables
 
 Configuration is loaded with `pydantic-settings`, which reads a `.env` file in
-the project root (see `.env.example` for the full reference)
+the backend directory (see `.env.example` for the full reference)
 
 The `db` service uses the `pgvector/pgvector:pg16` image because the document
 search index requires the PostgreSQL `pgvector` extension.
@@ -29,6 +32,11 @@ search index requires the PostgreSQL `pgvector` extension.
 1. **Build the image:**
    ```bash
    docker build -t commercial-agent .
+   ```
+
+   From the repo root, name the context and the file explicitly:
+   ```bash
+   docker build -f backend/Dockerfile -t commercial-agent backend
    ```
 
 2. **Run with environment variables:**
@@ -89,7 +97,7 @@ uv run pytest
 Run the server against a local PostgreSQL instance:
 
 ```bash
-uv run --env-file .env python src/whatsapp_server.py --host 0.0.0.0 --port 5000
+uv run --env-file .env src/whatsapp_server.py --host 0.0.0.0 --port 5000
 ```
 
 `--env-file` loads `.env` into the process environment (uv native support);

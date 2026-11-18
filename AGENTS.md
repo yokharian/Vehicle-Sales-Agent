@@ -1,112 +1,112 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-10-13
-**Commit:** 1541d7f
-**Branch:** master
+**Scope:** the repository root of the Vehicle Sales Agent monorepo.
+
+Two independent deployables live here: the Python agent in `backend/` and the Next.js chat front end in `web/`. This file covers the layout and the rules that span both. The backend has its own deep knowledge base at `backend/AGENTS.md`, with more in `backend/src/AGENTS.md`, `backend/src/db/AGENTS.md`, `backend/src/tools/AGENTS.md` and `backend/tests/AGENTS.md`. Read those before touching backend code; this file does not repeat them.
 
 ## OVERVIEW
 
-AI vehicle sales assistant for WhatsApp (Spanish-language): a LangGraph agent that searches a vehicle catalog with fuzzy matching, answers company questions from a knowledge base via hybrid BM25 + pgvector retrieval, and computes financing plans. Stack: Python 3.12 (uv), LangChain/LangGraph, FastAPI, SQLModel/PostgreSQL + pgvector, Twilio.
+The agent searches the vehicle catalog, answers company questions from a knowledge base and computes financing plans. It is reached over WhatsApp (Twilio webhook) and over the web chat (LangGraph API). The web app authenticates with Amazon Cognito and sends the access token as a bearer on every HTTP and SSE request.
 
 ## STRUCTURE
 
 ```
 vehicle-sales-agent/
-├── src/            # app core — flat-module imports (config, agent, db.*, tools.*), never src.*
-│   ├── agent.py            # LangGraph graph + SYSTEM_PROMPT + chat()
-│   ├── whatsapp_server.py  # FastAPI webhook server (entry point)
-│   ├── config.py           # all pydantic-settings classes
-│   ├── auth.py             # optional Cognito JWT auth
-│   ├── db/                 # engines, Vehicle model, DAO, pgvector chunk store
-│   └── tools/              # three @tool functions the agent calls
-├── scripts/        # ingest_csv.py, index_documents.py, html2text_cli.py (CLI entry points)
-├── tests/          # pytest suite; Docker/testcontainers required
-├── docs/           # binding ADRs + PRDs, DOCKER.md, WHATSAPP.md
-├── data/           # sample_vehicles.csv + documents/kavak.md (the knowledge corpus)
-├── docker/         # WhatsApp/minimal compose stacks
-├── langgraph.json  # graph: src/agent.py:agent, auth: src/auth.py:auth
-└── Dockerfile      # uv-based image
+├── backend/                 # Python agent, all backend knowledge lives here
+│   ├── src/                 # app core, flat imports (config, agent, db.*, tools.*)
+│   ├── scripts/             # ingest_csv.py, index_documents.py, html2text_cli.py
+│   ├── tests/               # pytest suite, Docker and testcontainers required
+│   ├── docs/                # ADRs, PRDs, DOCKER.md, WHATSAPP.md
+│   ├── data/                # sample_vehicles.csv, documents/kavak.md
+│   ├── docker/              # WhatsApp and minimal Compose stacks
+│   ├── Dockerfile           # uv based image, build context is backend/
+│   ├── langgraph.json       # graph src/agent.py:agent, auth src/auth.py:auth
+│   ├── pyproject.toml       # Python project, owns uv.lock
+│   └── README.md            # backend README
+├── web/                     # Next.js chat front end (static export)
+├── .github/workflows/       # CI, backend image pipeline, web publish pipeline
+├── .gitignore               # shared ignore rules for both stacks
+├── LICENSE
+├── README.md                # repo overview, quickstarts, CI and deploy
+└── AGENTS.md                # this file
 ```
 
 ## WHERE TO LOOK
 
 | Task | Location | Notes |
 |---|---|---|
-| Change agent behaviour/prompt | `src/agent.py` | `SYSTEM_PROMPT`, `chat()`; tools are commented out here |
-| Add/change a tool | `src/tools/` | see `src/tools/AGENTS.md`; schema fields are the LLM contract |
-| Catalog queries / fuzzy match | `src/db/vehicle_dao.py` | scoring runs in PostgreSQL, not Python |
-| Knowledge retrieval | `src/tools/document_search.py` + `src/db/document_loader.py` | BM25Plus + dense ensemble |
-| Config/env surface | `src/config.py`, `.env.example` | one `*Settings` class per concern |
-| Webhook / endpoints | `src/whatsapp_server.py` | `/whatsapp/webhook`, `/health`, `/send-message` |
-| Ingestion + indexing | `scripts/ingest_csv.py`, `scripts/index_documents.py` | both idempotent per key/source |
-| Binding decisions | `docs/Architecture Decision Records/`, `docs/Product Requirement Documents/` | ADR-002 tool calling, ADR-004 grounded answers, per-tool PRDs |
-| Test harness | `tests/conftest.py` | see `tests/AGENTS.md` |
-
-## CODE MAP
-
-Refs are textual references across tracked `.py` files (no LSP server is configured for this repo, so centrality is measured by search, not semantic analysis).
-
-| Symbol | Type | Location | Refs | Role |
-|---|---|---|---|---|
-| `Vehicle` | SQLModel table | `src/db/database.py:59` | ~103 | catalog row, `stock_id` PK, JSON `features` |
-| `catalog_search_tool` | `@tool` | `src/tools/catalog_search.py:142` | ~54 | vehicle search; structured + CSV output |
-| `financing_calculator_tool` | `@tool` | `src/tools/financing_calculator.py:85` | ~30 | Decimal financing math |
-| `document_search_tool` | `@tool` | `src/tools/document_search.py:158` | ~28 | grounded evidence retrieval |
-| `DocumentChunk` | ORM table | `src/db/document_loader.py:96` | ~22 | chunk rows + `Vector` embedding |
-| `DocumentSearchSettings` | settings | `src/config.py:58` | ~22 | retrieval + embedding config |
-| `DocumentLoader` | class | `src/db/document_loader.py:48` | ~19 | discovers/chunks `.md`/`.txt` |
-| `fuzzy_match_make` | function | `src/db/vehicle_dao.py:66` | ~17 | SQL levenshtein make resolution |
-| `load_chunks` / `dense_search` | functions | `src/db/document_loader.py:181,192` | ~15 / ~6 | retrieval primitives |
-| `get_session_sync` / `get_pgvector_session_sync` | functions | `src/db/database.py:49,54` | ~6 / ~5 | catalog / vector sessions |
-| `chat` | function | `src/agent.py:91` | ~5 | the only agent entry used by the server |
-| `create_fastapi_app` / `start_whatsapp_server` | functions | `src/whatsapp_server.py:120,187` | ~1 / ~1 | app factory and uvicorn runner |
+| Agent behaviour, prompt, tools | `backend/src/agent.py`, `backend/src/tools/` | see `backend/AGENTS.md` |
+| Catalog, knowledge base, financing | `backend/src/db/`, `backend/src/tools/` | scoring happens in Postgres, not Python |
+| Backend configuration surface | `backend/src/config.py`, `backend/.env.example` | one pydantic-settings class per concern |
+| WhatsApp webhook and endpoints | `backend/src/whatsapp_server.py` | `/whatsapp/webhook`, `/health`, `/send-message` |
+| Binding backend decisions | `backend/docs/Architecture Decision Records/`, `backend/docs/Product Requirement Documents/` | ADR and PRD per tool |
+| Front end chat surface | `web/src/` | assistant-ui primitives, LangGraph runtime |
+| Front end auth | `web/src/providers/Auth.tsx`, `web/src/lib/guest-session.ts` | Cognito plus the guest token store |
+| Repository layout, CI, deploy | `README.md`, `.github/workflows/` | |
 
 ## CONVENTIONS
 
-- Flat imports inside the app: `from config import ...`, `import db.database as db_module`, `from tools.document_search import ...`. `src` is NOT a package name at runtime — entry points prepend their own directory to `sys.path`. (This contradicts ruff's `known-first-party = ["src", "tests"]`.)
-- Settings are always pydantic-settings classes in `src/config.py`; never read `os.environ` directly elsewhere.
-- Import-time side effects are deliberate: `db/database.py` opens both engines, `agent.py` builds the model and graph, `auth.py` builds the JWKS client. Expect imports to need env configured.
-- Money is `Decimal` (`Decimal(str(value))`, `ROUND_HALF_UP`, `localcontext()`); the LLM never computes or adjusts figures.
-- Errors: one `*Error(RuntimeError)` class per tool, raised `from exc`, logging the exception type and never the DSN.
-- User-facing strings are Spanish; code, docstrings and logs are English.
+- One project per directory, no workspace manifests at the root. `uv` commands run from `backend/`, `pnpm` commands run from `web/`. There is no root `package.json` and no root `pyproject.toml`.
+- Docs live next to what they describe: `backend/README.md` and `backend/docs/` for the agent, root `README.md` and `AGENTS.md` for the repo.
+- Secrets never enter the repo. `.env`, `.env.local` and generated `amplify_outputs.json` are gitignored.
+- Backend money is `Decimal`; the model never computes figures. Backend user-facing strings are Spanish, code and logs are English. The front end ships English and Spanish copy as the product needs.
+- The web app is a static export (`output: "export"` in `web/next.config.mjs`). No server runtime, no API routes, no middleware.
 
 ## ANTI-PATTERNS (THIS PROJECT)
 
-- No `src.`-prefixed imports inside the app; no reliance on the repo root being importable.
-- No business rules in prompts (ADR-002) and no invented business facts (ADR-004) — empty retrieval is reported as empty, never filled from model knowledge.
-- Never append duplicate catalog rows on re-ingest; the catalog is keyed on `stock_id`.
-- Never let a connection string, token or DSN reach an error message or log line.
-- Never make the tool contract expose PostgreSQL specifics (PRD `knowledge_search.md`).
-- Tests must not import app modules before their `sys.path` line, and must not bind `db.database.engine` at import time (the harness swaps engines on the module).
-
-## UNIQUE STYLES
-
-- `agent.py` builds the model, the Langfuse `CallbackHandler` and the graph at module scope; there is no factory function for the graph.
-- `whatsapp_server.py` holds one lazy module-global `assistant` singleton and truncates replies at 1600 chars with `...\n\n[Respuesta truncada]`.
-- Retrieval deliberately uses `BM25Plus`, not `BM25Okapi` (Okapi IDF collapses on this small corpus).
-- `document_loader.py` splits ingest (`DocumentLoader` class) from persistence (module-level functions); the persistence functions reach the engine through the module so the test harness can swap it.
+- Do not run uv, pnpm, Next.js or Docker commands from the repo root and expect them to work.
+- Do not reintroduce a Python or npm workspace root to "simplify" installs; the two stacks are deployed independently.
+- Do not commit `.env`, `.env.local`, `web/amplify_outputs.json` or any generated build output.
+- Do not merge backend knowledge into this file; extend `backend/AGENTS.md` instead.
+- Do not add a Vercel or Amplify git integration. GitHub Actions is the only builder and publisher.
 
 ## COMMANDS
 
+Backend, from `backend/`:
+
 ```bash
-uv sync                                                      # install deps (Python 3.12 from .python-version)
-uv run pytest                                                # full suite — REQUIRES a running Docker daemon
-uv run pytest tests/test_document_loader.py                   # single module
-uvx ruff check . && uvx ruff format .                         # ruff is configured but NOT installed in .venv
-uv run --env-file .env python src/whatsapp_server.py --host 0.0.0.0 --port 5000
-uv run --env-file .env python scripts/ingest_csv.py data/sample_vehicles.csv --create-tables
-uv run --env-file .env python scripts/index_documents.py       # --file <path> for one doc, --force to rebuild
-docker compose up --build                                     # app + pgvector; ingests on startup
-vercel deploy --prod                                          # builds the root Dockerfile, serves it with Fluid Compute
+uv sync --locked                   # install dependencies
+uv run pytest                      # full suite, needs a running Docker daemon
+uvx ruff@0.9.10 check .            # lint
+uvx ruff@0.9.10 format --check .   # format check
+uv run --env-file .env scripts/ingest_csv.py data/sample_vehicles.csv --create-tables
+uv run --env-file .env scripts/index_documents.py
+uv run --env-file .env src/whatsapp_server.py --host 0.0.0.0 --port 5000
+uv run langgraph dev               # LangGraph API used by the web app
+docker compose up --build          # app plus pgvector
+docker build -f backend/Dockerfile -t vsa-backend:local backend
 ```
 
-CI (`.github/workflows/deploy.yml`) builds, pushes and cosign-signs the image on `master`, `v*.*.*` tags and manual dispatch — it never runs the test suite.
+Front end, from `web/`:
+
+```bash
+corepack pnpm install              # pnpm 10.5.1 is pinned; no global pnpm needed
+corepack pnpm dev
+corepack pnpm build                # static export into web/out
+corepack pnpm lint
+corepack pnpm format:check
+```
+
+CI and deploy, from the repo root:
+
+```bash
+# read-only inspection; CI itself runs these from the listed working directories
+git push origin master             # ci.yml, deploy.yml and web-deploy.yml react
+gh workflow run web-deploy.yml     # manual publish of the current default branch
+```
+
+## CI AND DEPLOY
+
+- `.github/workflows/ci.yml` runs on pushes to `master` and pull requests. Its `changes` job (`dorny/paths-filter@v3`) gates two independent jobs: the backend job (`backend/**`) runs `uv sync --locked`, the two ruff checks and `uv run pytest -q` with `working-directory: backend`; the web job (`web/**`) runs `pnpm install --frozen-lockfile`, `pnpm format:check`, `pnpm lint` and `pnpm build` with `working-directory: web`, Node 22 and pnpm 10.5.1, using dummy `NEXT_PUBLIC_*` values and `AMPLIFY_OUTPUTS_JSON='{"auth":{}}'`.
+- `.github/workflows/deploy.yml` builds the backend image from `backend/Dockerfile` with context `./backend`, pushes to GHCR and signs it with cosign.
+- `.github/workflows/web-deploy.yml` is the only web publisher: pushes to `master` touching `web/**` or manual dispatch, `Preview` environment, OIDC role, then the Amplify manual deployment API (`create-deployment`, upload, `start-deployment`, `get-job`). It never runs on `pull_request`.
+- Precondition: the Cognito user pool and app clients, the Amplify app (no connected repository, auto-build disabled) and the OIDC deploy role, plus the GitHub secrets/variables listed in `README.md`, must exist before the workflows can succeed. CI provisions nothing.
+- Dependabot updates `uv` and `docker` in `/backend`, `npm` in `/web` and GitHub Actions; minor and patch updates are grouped and non-major pull requests auto-merge after CI.
 
 ## NOTES
 
-- **`src/agent.py` currently runs without tools.** Lines 21-23 (tool imports), 80 (`tools = [...]`) and 85 (`tools=tools,`) are commented out, so the live agent has no catalog/document/financing capability although README, ADR-002 and the PRDs describe tool calling. Confirm intent before restoring.
-- **Docker is running in this checkout (verified 2026-10-13)**, so the test suite can start here again.
-- `.env` is read from the CWD by pydantic-settings, so tests and CLIs behave differently when run from another directory; the local `.env` also shadows settings defaults in `tests/test_config.py`.
-- `.aiignore` excludes `.env` and `.venv/`; `.env` exists locally and is gitignored.
-- ADR-006 is a Draft; ADR-001 to ADR-005 are Accepted and binding. Each tool has a PRD that defines its contract.
-- `docs/diagrams/` holds SVG/Excalidraw sources; `ingestion_errors.log` is a runtime artifact.
+- The backend moved into `backend/` in this branch. Every backend path in this file is relative to `backend/`, and the Docker build context is `backend/`, not the repo root.
+- `.github/workflows/ci.yml` runs the backend steps with `working-directory: backend`. The repo root holds no Python project, so a root-scoped `uv sync --locked` fails there (exit 2).
+- `.github/workflows/deploy.yml` builds with `context: ./backend` and `file: ./backend/Dockerfile`.
+- The Amplify app for the front end has no connected repository and auto-build disabled. The publish workflow creates a deployment through the Amplify manual deployment API.
+- CI runs the backend and web jobs independently behind the paths filter; `web-deploy.yml` runs only the web build, and `deploy.yml` runs only the backend image build.

@@ -1,0 +1,8 @@
+node_modules
+.next
+out
+next-env.d.ts
+amplify_outputs.json
+.env
+.env.local
+*.tsbuildinfo

@@ -189,6 +189,8 @@ eggs/
 .eggs/
 lib/
 lib64/
+# The Python packaging rules above would hide the Next.js source directory
+!web/src/lib/
 parts/
 sdist/
 var/

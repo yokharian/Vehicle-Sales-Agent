@@ -1,208 +1,114 @@
-# 🚗 Vehicle Sales Agent
+# Vehicle Sales Agent
 
-An AI-powered vehicle sales assistant that chats with customers over WhatsApp: it searches the vehicle catalog with fuzzy typo tolerance, answers company questions from a knowledge base with hybrid (BM25 + pgvector) retrieval, and calculates financing plans — built with LangGraph, PostgreSQL, and FastAPI, managed with `uv`.
+A vehicle sales assistant with two deployables in one repo:
 
-## Diagram
+- `backend/` is the Python agent. It searches the vehicle catalog with typo-tolerant fuzzy matching, answers company questions from a knowledge base with hybrid BM25 + pgvector retrieval, and computes financing plans. It serves WhatsApp through a Twilio webhook and the LangGraph API that the web app talks to.
+- `web/` is the Next.js chat front end. It streams answers from the same LangGraph API and authenticates every HTTP and SSE request with a Cognito bearer token.
 
-![AI Sales Agent.svg](docs/diagrams/AI%20Sales%20Agent.svg)
+## Layout
 
-## ✨ Features
+| Path | What lives there | Stack | Docs |
+|---|---|---|---|
+| `backend/` | Agent, tools, WhatsApp server, tests, Docker image, Compose stacks | Python 3.12, LangGraph, FastAPI, SQLModel/PostgreSQL + pgvector, uv | [backend/README.md](backend/README.md) |
+| `backend/src/` | The application core, flat imports (`from config import ...`) | Python | [backend/src/AGENTS.md](backend/src/AGENTS.md) |
+| `backend/tests/` | pytest suite, real Postgres through testcontainers | pytest | [backend/tests/AGENTS.md](backend/tests/AGENTS.md) |
+| `backend/docs/` | ADRs, PRDs, Docker and WhatsApp setup | Markdown | [backend/docs/](backend/docs/) |
+| `web/` | Chat front end, statically exported | Next.js 16, React 19, assistant-ui, Tailwind v4, pnpm | |
+| `.github/workflows/` | CI for both stacks, container image and hosting pipelines | GitHub Actions | |
+| `AGENTS.md` | Repo level knowledge for agents | Markdown | [AGENTS.md](AGENTS.md) |
 
-- 🤖 **AI-Powered Agent**: LangGraph `create_agent` with structured tool calling
-- 📱 **WhatsApp Integration**: Bidirectional messaging via Twilio (TwiML webhooks)
-- 🔍 **Vehicle Catalog Search**: Fuzzy matching with typo tolerance (PostgreSQL fuzzystrmatch) over SQLModel/PostgreSQL
-- 📄 **Document Search**: Hybrid retrieval — BM25Plus sparse + pgvector dense, fused with `EnsembleRetriever`
-- 💰 **Financing Calculator**: Decimal-precise monthly payments and amortization schedules
-- 🌐 **FastAPI Server**: Production-ready webhook handling with health checks
+There is no Python manifest or npm workspace at the repo root. Every command runs from the directory that owns it: `backend/` for uv and Docker, `web/` for pnpm and Next.js.
 
-![Features High Level Diagram.svg](docs/diagrams/Features%20High%20Level%20Diagram.svg)
+## Prerequisites
 
-## 🚀 Quick Start
+- Python 3.12 and [`uv`](https://docs.astral.sh/uv/)
+- Node.js 22 with Corepack. pnpm 10.5.1 is pinned in `web/package.json` under `packageManager`, so `corepack pnpm ...` works without installing pnpm globally.
+- Docker and Docker Compose, for the backend stack and for the test suite
+- A model provider key (OpenAI or OpenRouter) for chat and embeddings
+- Twilio credentials for the WhatsApp path
+- A Supabase Postgres project with the `pgvector` extension for the catalog and the knowledge base
 
-### Prerequisites
-
-- Python 3.12+
-- [`uv`](https://docs.astral.sh/uv/) for dependency management
-- **Docker** and **Docker Compose** for the app stack — and required to run the test suite (testcontainers)
-- API keys: OpenAI or OpenRouter for chat/embeddings, Twilio for WhatsApp
-
-### Installation
-
-1. **Clone the repository and install dependencies:**
-   ```bash
-   git clone <repository-url>
-   cd vehicle-sales-agent
-   uv sync
-   ```
-
-2. **Set up environment variables:**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your credentials
-   ```
-
-3. **Start PostgreSQL with pgvector (or use Docker Compose, below):**
-   ```bash
-   docker compose up -d db
-   ```
-
-4. **Ingest the vehicle catalog and index the knowledge base:**
-   ```bash
-   uv run --env-file .env python scripts/ingest_csv.py data/sample_vehicles.csv --create-tables
-   uv run --env-file .env python scripts/index_documents.py
-   ```
-
-5. **Run the WhatsApp server:**
-   ```bash
-   uv run --env-file .env python src/whatsapp_server.py --host 0.0.0.0 --port 5000
-   ```
-
-### Using Docker Compose
-
-For a full deployment (app + database), see [docs/DOCKER.md](docs/DOCKER.md):
+## Backend quickstart
 
 ```bash
-docker compose up --build
+cd backend
+uv sync --locked
+cp .env.example .env      # then fill in the keys
+docker compose up -d db
+uv run --env-file .env scripts/ingest_csv.py data/sample_vehicles.csv --create-tables
+uv run --env-file .env scripts/index_documents.py
 ```
 
-The container runs CSV ingestion on startup, then serves the WhatsApp server on port `5000`.
-
-### Deploying to Vercel (Fluid Compute)
-
-Vercel builds the repository-root [`Dockerfile`](Dockerfile) and serves it with Fluid Compute enabled. That image is
-the LangGraph API server: it exposes the agent graph (`src/agent.py:agent`) and the Cognito-authenticated API, with
-the catalog, document and financing tools reading Supabase Postgres.
-
-`vercel.json` pins the Container framework preset and `fluid: true`:
-
-```json
-{
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "container",
-  "fluid": true
-}
-```
-
-The project must use the Container preset - Vercel keeps a detected framework otherwise, and the root `Dockerfile`
-is only built when no other framework is selected. The project settings also need:
-
-| Setting | Value |
-|---|---|
-| Framework preset | Container |
-| Install command | empty (the image installs its own dependencies) |
-
-The public hostname is terminated by a Kong reverse proxy, so no domain has to be attached to the Vercel project: Kong
-upstreams to the production deployment URL (`https://<project>.vercel.app`). Kong is also the place to attach the Twilio
-webhook path, because this image serves the LangGraph API, not the WhatsApp server.
-
-Environment variables: the Supabase ones (`POSTGRES_URL_NON_POOLING`, `POSTGRES_URL`, `POSTGRES_PRISMA_URL`, and the
-discrete `POSTGRES_HOST` / `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DATABASE`) resolve the database URL, with
-the non-pooling URL preferred. `LANGGRAPH_RUNTIME_EDITION=inmem` keeps the LangGraph run queue in memory and needs no
-runtime database, and `REDIS_URI=fake` satisfies the queue's configuration. `PORT` must match the port the image
-listens on (`8000`).
-
-## 💬 Usage
-
-The agent answers over WhatsApp. Example queries:
-
-```
-You: ¿Qué documentos necesito para comprar un auto?
-You: Quiero comprar un coche BMW
-You: ¿Hay devolución?
-You: Busco onda o bolbo baratos
-You: ¿Dónde están las sedes de kavak?
-You: wolksvagen del año
-You: nasda y nisan con el menor km
-You: ¿Cómo funciona el plan de pago a meses?
-
-# invalid query (grounded responses only):
-You: ¿En qué año se fundó kavak?
-```
-
-Configure the Twilio webhook URL: `http://your-server:5000/whatsapp/webhook`
-
-## ⚙️ Configuration
-
-All configuration is loaded with `pydantic-settings` from `.env` (see [`.env.example`](.env.example) for the full reference)
-
-## 🔧 How It Works
-
-### Vehicle Search Flow
-1. User query received (WhatsApp)
-2. The agent calls the `catalog_search` tool with the raw user input
-3. Fuzzy matching normalizes make/model typos (PostgreSQL fuzzystrmatch)
-4. PostgreSQL query filters by price, features, mileage, make, and model
-5. Results ranked and formatted back to the user
-
-### Document Search Flow
-1. Knowledge-base documents (`.md`) are chunked (500 chars, 100 overlap) at headings
-2. Chunks embedded via OpenAI/OpenRouter and stored in PostgreSQL `pgvector`
-3. Hybrid retrieval: BM25Plus sparse + dense vector search, fused by `EnsembleRetriever`
-4. Relevant chunks ground the agent's response; no invented information
-
-### Financing Flow
-- Monthly payments and amortization schedules computed with `Decimal` arithmetic and `ROUND_HALF_UP`
-
-## 🧪 Testing
+Run the LangGraph API that the web app connects to:
 
 ```bash
+cd backend
+uv run langgraph dev
+```
+
+Run the WhatsApp webhook server instead:
+
+```bash
+cd backend
+uv run --env-file .env src/whatsapp_server.py --host 0.0.0.0 --port 5000
+```
+
+Backend tests need a running Docker daemon, because the suite provisions real Postgres containers:
+
+```bash
+cd backend
 uv run pytest
 ```
 
-**Docker is required to run the tests.** The suite provisions real PostgreSQL + pgvector containers via [testcontainers](https://testcontainers-python.readthedocs.io/) instead of mocking the database; embedding calls are replaced with deterministic fakes, so no API keys are needed. See [docs/DOCKER.md](docs/DOCKER.md) for details and troubleshooting.
+## Web quickstart
 
-## 📊 API Endpoints
-
-When running the WhatsApp server:
-
-- `POST /whatsapp/webhook` - Handle incoming WhatsApp messages (Twilio)
-- `GET /whatsapp/webhook` - Webhook verification
-- `GET /health` - Health check endpoint
-- `POST /send-message` - Send a WhatsApp message programmatically
-- `GET /docs` - FastAPI auto-generated documentation (Swagger)
-- `GET /redoc` - ReDoc API documentation
-
-## 📁 Project Structure
-
-```
-vehicle-sales-agent/
-│
-├── src/
-│   ├── agent.py                     # LangGraph agent (catalog + document search tools)
-│   ├── config.py                    # pydantic-settings configuration
-│   ├── whatsapp_server.py           # FastAPI WhatsApp webhook server
-│   ├── db/                          # Database layer (engine, DAOs, document loader)
-│   └── tools/                       # LangChain tools
-│       ├── catalog_search.py        # Vehicle catalog search (fuzzy matching)
-│       ├── document_search.py       # Hybrid document search (BM25 + pgvector)
-│       └── financing_calculator.py  # Financing calculator
-│
-├── scripts/
-│   ├── ingest_csv.py                # CSV vehicle data ingestion
-│   ├── index_documents.py           # Knowledge-base indexing into pgvector
-│   └── html2text_cli.py             # HTML → markdown conversion utility
-│
-├── data/
-│   ├── documents/kavak.md           # Knowledge base (company information)
-│   └── sample_vehicles.csv          # Sample vehicle data
-│
-├── docs/                            # Documentation (see below)
-├── tests/                           # Test suite (testcontainers)
-├── Dockerfile                       # uv-based container image
-└── docker-compose.yml               # App + PostgreSQL/pgvector stack
+```bash
+cd web
+corepack pnpm install
+corepack pnpm dev
 ```
 
-## 📚 Documentation
+Corepack downloads the pinned pnpm release on first use. If pnpm is already installed globally, plain `pnpm install` and `pnpm dev` are equivalent; the commands here use `corepack pnpm` so they also work on a machine without a global pnpm.
 
-- [Docker Setup Guide](docs/DOCKER.md) - Deployment and testing with Docker
-- [WhatsApp Setup Guide](docs/WHATSAPP.md) - Twilio account, webhook, and server configuration
-- [Product Requirement Documents](docs/Product%20Requirement%20Documents/) - `vehicle_catalog.md`, `knowledge_search.md`, `financing_calculator.md`
-- [Architecture Decision Records](docs/Architecture%20Decision%20Records/) - ADR-001 through ADR-006 (technology stack, structured tool calling, PostgreSQL datastore, grounded responses, evaluation, hybrid retrieval)
-- [Challenge description](docs/Challenge.en.md) / [Challenge description (Spanish)](docs/Challenge.es.md)
+The build needs these values, read from `web/.env.local` locally and from GitHub secrets in CI:
 
-### External Resources
-- [LangChain Documentation](https://python.langchain.com/docs/introduction/)
-- [LangGraph Documentation](https://langchain-ai.github.io/langgraph/)
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [Twilio WhatsApp API](https://www.twilio.com/docs/whatsapp)
-- [pgvector](https://github.com/pgvector/pgvector)
+| Variable | Meaning |
+|---|---|
+| `NEXT_PUBLIC_API_URL` | Base URL of the LangGraph API, for example `https://api.yokharian.dev/vsagent` |
+| `NEXT_PUBLIC_ASSISTANT_ID` | Graph id to talk to, `agent` |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare Turnstile site key for the guest flow |
+| `AMPLIFY_OUTPUTS_JSON` | Cognito config for the web app, written to `web/amplify_outputs.json` during the build |
+
+```bash
+cd web
+corepack pnpm build            # static export into web/out
+corepack pnpm lint
+corepack pnpm format:check
+```
+
+## CI and deploy
+
+- **`.github/workflows/ci.yml`** runs on pushes to `master` and on pull requests. A `changes` job uses `dorny/paths-filter@v3` to decide which stack changed; the backend job runs for `backend/**` and the web job for `web/**` (both also rerun when the workflow file changes).
+  - The backend job sets `working-directory: backend` and runs `uv sync --locked`, `uvx ruff@0.9.10 check .`, `uvx ruff@0.9.10 format --check .` and `uv run pytest -q`.
+  - The web job sets `working-directory: web`, installs Node 22 and pnpm 10.5.1 with `pnpm/action-setup`, caches the pnpm store, and runs `pnpm install --frozen-lockfile`, `pnpm format:check`, `pnpm lint` and `pnpm build`. The job supplies dummy public values so the build needs no secrets: `NEXT_PUBLIC_API_URL=https://example.invalid`, `NEXT_PUBLIC_ASSISTANT_ID=agent`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA` and `AMPLIFY_OUTPUTS_JSON='{"auth":{}}'`.
+- **`.github/workflows/deploy.yml`** builds the backend image from `backend/Dockerfile` with the `./backend` build context, pushes it to GitHub Container Registry on `master`, on `v*.*.*` tags and on manual dispatch, and signs the digest with cosign.
+- **`.github/workflows/web-deploy.yml`** builds the static export and publishes it to Amplify Hosting through the manual deployment API. It runs on pushes to `master` that touch `web/**` or the workflow file, and on manual dispatch; it never runs on pull requests. The job uses the `Preview` environment and the steps are: checkout, write `web/amplify_outputs.json` from `secrets.AMPLIFY_OUTPUTS_JSON`, `pnpm install`, `pnpm build`, zip `web/out`, upload the artifact, authenticate with `secrets.AWS_DEPLOY_ROLE_ARN`, then `amplify create-deployment`, upload, `start-deployment` and poll `get-job`. The Amplify app has no connected repository and auto-build disabled, so GitHub Actions is the only builder and publisher.
+- **Dependabot** tracks `uv` and `docker` under `/backend`, `npm` under `/web`, and the GitHub Actions used by these workflows. Minor and patch updates are grouped; Dependabot enables auto-merge for non-major pull requests.
+
+## AWS provisioning precondition
+
+The web app talks to AWS hosted resources, and CI creates none of them. Provision them once before the first `web-deploy.yml` run; the workflow fails at the AWS steps until they exist.
+
+- **Amazon Cognito user pool** (us-east-1) with a registered app client and a guest app client. The registered client backs sign-in and sign-up, the guest client backs the "Continue as guest" flow. The backend validates access tokens against the pool JWKS once `COGNITO_REGION` and `COGNITO_USER_POOL_ID` are set, and runs open while they are unset.
+- **Amplify app** for hosting the static export, created with no connected repository, no auto branch creation and `enableAutoBuild: false` on its branch.
+- **GitHub secrets and variables**: secrets `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_ASSISTANT_ID`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `AMPLIFY_OUTPUTS_JSON` and `AWS_DEPLOY_ROLE_ARN`; variables `AMPLIFY_APP_ID`, `AMPLIFY_BRANCH` and `AWS_REGION`. The deploy role must trust the GitHub Actions OIDC provider and be allowed to call the Amplify hosting deployment APIs on that app.
+
+The Postgres database is Supabase rather than AWS, but the `pgvector` extension has to be enabled there before the document search works.
+
+## Further reading
+
+- [Backend README](backend/README.md): features, configuration, API endpoints, project structure
+- [Docker setup](backend/docs/DOCKER.md)
+- [WhatsApp setup](backend/docs/WHATSAPP.md)
+- [Architecture Decision Records](backend/docs/Architecture%20Decision%20Records/)
+- [Product Requirement Documents](backend/docs/Product%20Requirement%20Documents/)

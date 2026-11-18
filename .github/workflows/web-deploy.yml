@@ -1,0 +1,107 @@
+# Builds the web/ Next.js static export in GitHub Actions and publishes it to
+# Amplify Hosting through the manual deployment API (CreateDeployment /
+# StartDeployment). This workflow is the ONLY publisher for the web app;
+# Amplify serves prebuilt artifacts only (no CodePipeline, no AWS-side build).
+#
+# PROVISIONING PRECONDITION (done once, outside this repo, after the PR lands):
+#   - An Amplify Hosting app exists that was created WITHOUT a repository
+#     connection, and its branch (vars.AMPLIFY_BRANCH) has enableAutoBuild false,
+#     so Amplify never builds from git.
+#   - An IAM role in the target account trusts GitHub OIDC for this repository
+#     and the "Preview" environment; its ARN is secrets.AWS_DEPLOY_ROLE_ARN.
+#   - Repo variables AMPLIFY_APP_ID, AMPLIFY_BRANCH, AWS_REGION are set, and the
+#     secret AMPLIFY_OUTPUTS_JSON holds the Amplify Gen2 backend outputs JSON.
+# Until the app and role exist, this workflow will fail at the AWS steps.
+
+name: Web Deploy
+
+on:
+  push:
+    branches: ["master"]
+    paths:
+      - "web/**"
+      - ".github/workflows/web-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: web-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build web and publish to Amplify Hosting
+    runs-on: ubuntu-latest
+    environment:
+      name: Preview
+    defaults:
+      run:
+        working-directory: web
+    env:
+      NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+      NEXT_PUBLIC_ASSISTANT_ID: ${{ secrets.NEXT_PUBLIC_ASSISTANT_ID }}
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+      AMPLIFY_OUTPUTS_JSON: ${{ secrets.AMPLIFY_OUTPUTS_JSON }}
+      AMPLIFY_APP_ID: ${{ vars.AMPLIFY_APP_ID }}
+      AMPLIFY_BRANCH: ${{ vars.AMPLIFY_BRANCH }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Write web/amplify_outputs.json (gitignored backend config, required by the build)
+        run: |
+          if [ -z "$AMPLIFY_OUTPUTS_JSON" ]; then
+            echo "::error::AMPLIFY_OUTPUTS_JSON secret is empty — set it to the backend's amplify_outputs.json content"
+            exit 1
+          fi
+          printf '%s' "$AMPLIFY_OUTPUTS_JSON" > amplify_outputs.json
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.5.1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22.x"
+          cache: "pnpm"
+          cache-dependency-path: web/pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install
+      - name: Build static export
+        run: pnpm build
+      - name: Zip build output
+        run: cd out && zip -rq "../out-${GITHUB_SHA::7}.zip" .
+      - name: Keep zip for rollback
+        uses: actions/upload-artifact@v7
+        with:
+          name: web-out-${{ github.sha }}
+          path: web/out-*.zip
+          retention-days: 30
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Deploy to Amplify Hosting
+        run: |
+          set -euo pipefail
+          DEPLOY_JSON=$(aws amplify create-deployment --app-id "$AMPLIFY_APP_ID" --branch-name "$AMPLIFY_BRANCH" --output json)
+          JOB_ID=$(jq -r .jobId <<<"$DEPLOY_JSON")
+          ZIP_URL=$(jq -r .zipUploadUrl <<<"$DEPLOY_JSON")
+          echo "Uploading build to Amplify (job $JOB_ID)"
+          curl -fsS -o /dev/null --upload-file "out-${GITHUB_SHA::7}.zip" "$ZIP_URL"
+          aws amplify start-deployment --app-id "$AMPLIFY_APP_ID" --branch-name "$AMPLIFY_BRANCH" --job-id "$JOB_ID"
+          for _ in $(seq 1 60); do
+            STATUS=$(aws amplify get-job --app-id "$AMPLIFY_APP_ID" --branch-name "$AMPLIFY_BRANCH" --job-id "$JOB_ID" --query 'job.summary.status' --output text || true)
+            echo "Deployment status: ${STATUS:-unknown}"
+            if [ "$STATUS" = "SUCCEED" ]; then
+              exit 0
+            fi
+            if [ "$STATUS" = "FAILED" ] || [ "$STATUS" = "CANCELLED" ]; then
+              echo "Amplify deployment $STATUS"
+              exit 1
+            fi
+            sleep 5
+          done
+          echo "Timed out waiting for Amplify deployment"
+          exit 1
