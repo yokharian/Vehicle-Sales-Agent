@@ -63,13 +63,17 @@ function ReloadButton() {
   );
 }
 
-export function AssistantMessage() {
+export function AssistantMessage({
+  hideTools = false,
+}: {
+  hideTools?: boolean;
+} = {}) {
   return (
     <MessagePrimitive.Root className="flex w-full flex-col gap-2 py-4">
       <MessagePrimitive.Parts
         components={{
           Text: MarkdownText,
-          tools: { Fallback: ToolFallback },
+          tools: { Fallback: hideTools ? () => null : ToolFallback },
         }}
       />
       <ActionBarPrimitive.Root

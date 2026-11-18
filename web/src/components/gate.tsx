@@ -4,15 +4,13 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Ghost } from "lucide-react";
 
 import type { ReactNode } from "react";
-import { GuestBanner } from "@/components/guest-banner";
 import { LoginForm } from "@/components/login-form";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/providers/Auth";
 import { useTurnstileToken } from "@/components/turnstile-widget";
 
 export function Gate({ children }: { children: ReactNode }) {
-  const { session, loading, isGuest, guestExpired, signInAnonymously } =
-    useAuth();
+  const { session, loading, guestExpired, signInAnonymously } = useAuth();
   const [guestPending, setGuestPending] = useState(false);
   const [guestError, setGuestError] = useState<string | null>(null);
   const {
@@ -111,7 +109,6 @@ export function Gate({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-dvh flex-col">
-      {isGuest ? <GuestBanner /> : null}
       <div className="min-h-0 flex-1">{children}</div>
     </div>
   );
