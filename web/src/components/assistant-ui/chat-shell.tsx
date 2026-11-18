@@ -6,7 +6,10 @@ import { parseAsBoolean, useQueryState } from "nuqs";
 import { useMemo } from "react";
 
 import { Composer } from "@/components/assistant-ui/composer";
-import { AssistantMessage, UserMessage } from "@/components/assistant-ui/message";
+import {
+  AssistantMessage,
+  UserMessage,
+} from "@/components/assistant-ui/message";
 import { ThreadList } from "@/components/assistant-ui/thread-list";
 import {
   InfoHealthCheck,

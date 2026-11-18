@@ -16,7 +16,10 @@ export function Composer() {
   return (
     <div className="bg-muted relative z-10 mx-auto mb-8 w-full max-w-3xl rounded-2xl shadow-xs transition-all">
       <ComposerPrimitive.Root className="mx-auto grid max-w-3xl grid-rows-[1fr_auto] gap-2">
-        <ComposerPrimitive.Input asChild rows={1}>
+        <ComposerPrimitive.Input
+          asChild
+          rows={1}
+        >
           <Textarea
             placeholder="Type your message..."
             className={COMPOSER_INPUT_CLASSES}
