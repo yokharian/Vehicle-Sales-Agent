@@ -4,6 +4,7 @@ import React from "react";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 
 import { Toaster } from "@/components/ui/sonner";
+import { PostHogProvider } from "@/providers/PostHog";
 
 export const metadata: Metadata = {
   title: "VSA Web",
@@ -18,8 +19,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        <NuqsAdapter>{children}</NuqsAdapter>
-        <Toaster />
+        <PostHogProvider>
+          <NuqsAdapter>{children}</NuqsAdapter>
+          <Toaster />
+        </PostHogProvider>
       </body>
     </html>
   );

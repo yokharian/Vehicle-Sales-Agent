@@ -77,6 +77,8 @@ The build needs these values, read from `web/.env.local` locally and from GitHub
 | `NEXT_PUBLIC_API_URL` | Base URL of the LangGraph API, for example `https://api.yokharian.dev/vsagent` |
 | `NEXT_PUBLIC_ASSISTANT_ID` | Graph id to talk to, `agent` |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare Turnstile site key for the guest flow |
+| `NEXT_PUBLIC_POSTHOG_KEY` | PostHog project API key (public client key); unset keeps analytics disabled |
+| `NEXT_PUBLIC_POSTHOG_HOST` | PostHog ingestion host, `https://us.i.posthog.com` |
 | `AMPLIFY_OUTPUTS_JSON` | Cognito config for the web app, written to `web/amplify_outputs.json` during the build |
 
 ```bash
@@ -101,7 +103,7 @@ The web app talks to AWS hosted resources, and CI creates none of them. Provisio
 
 - **Amazon Cognito user pool** (us-east-1) with a registered app client and a guest app client. The registered client backs sign-in and sign-up, the guest client backs the "Continue as guest" flow. The backend validates access tokens against the pool JWKS once `COGNITO_REGION` and `COGNITO_USER_POOL_ID` are set, and runs open while they are unset.
 - **Amplify app** for hosting the static export, created with no connected repository, no auto branch creation and `enableAutoBuild: false` on its branch.
-- **GitHub secrets and variables**: secrets `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_ASSISTANT_ID`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `AMPLIFY_OUTPUTS_JSON` and `AWS_DEPLOY_ROLE_ARN`; variables `AMPLIFY_APP_ID`, `AMPLIFY_BRANCH` and `AWS_REGION`. The deploy role must trust the GitHub Actions OIDC provider and be allowed to call the Amplify hosting deployment APIs on that app.
+- **GitHub secrets and variables**: secrets `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_ASSISTANT_ID`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST`, `AMPLIFY_OUTPUTS_JSON` and `AWS_DEPLOY_ROLE_ARN`; variables `AMPLIFY_APP_ID`, `AMPLIFY_BRANCH` and `AWS_REGION`. The deploy role must trust the GitHub Actions OIDC provider and be allowed to call the Amplify hosting deployment APIs on that app.
 
 The Postgres database is Supabase rather than AWS, but the `pgvector` extension has to be enabled there before the document search works.
 
