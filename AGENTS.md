@@ -2,7 +2,7 @@
 
 Two independent deployables live in this repo: the Python agent in `backend/` and the Next.js chat front end in `web/`. The agent searches the vehicle catalog, answers company questions from a knowledge base and computes financing plans; it is reached over WhatsApp (Twilio webhook) and over the web chat (LangGraph API). The web app authenticates with Amazon Cognito and sends the access token as a bearer on every HTTP and SSE request.
 
-Backend knowledge is layered: read `backend/AGENTS.md` first, then `backend/src/AGENTS.md`, `backend/src/db/AGENTS.md`, `backend/src/tools/AGENTS.md` and `backend/tests/AGENTS.md` when working in those areas. `web/AGENTS.md` covers the front end. Setup guides and binding decisions live in the root `docs/` folder; architecture lives in the root `README.md`.
+Backend knowledge is layered: read `backend/AGENTS.md` first, then `backend/src/db/AGENTS.md`, `backend/src/tools/AGENTS.md` and `backend/tests/AGENTS.md` when working in those areas. Setup guides and binding decisions live in the root `docs/` folder; architecture lives in the root `README.md`.
 
 ## Commands
 

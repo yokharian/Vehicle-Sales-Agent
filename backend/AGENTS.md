@@ -2,13 +2,6 @@
 
 Spanish-language AI vehicle sales assistant: a LangGraph agent that searches the vehicle catalog with fuzzy matching, answers company questions from a knowledge base via hybrid BM25 + pgvector retrieval, and computes financing plans. Stack: Python 3.12 (uv), LangChain/LangGraph, FastAPI, SQLModel/PostgreSQL + pgvector, Twilio.
 
-Everything below is relative to `backend/`. Deeper knowledge lives in `src/AGENTS.md`, `src/db/AGENTS.md`, `src/tools/AGENTS.md` and `tests/AGENTS.md`; binding decisions and setup guides live in the repo-root `docs/` folder. Commands live in this directory's `README.md`.
+Everything below is relative to `backend/`. The service is one LangGraph agent, one FastAPI webhook server, one settings module, plus the `db/` and `tools/` packages, imported as FLAT top-level modules (`config`, `agent`, `db.database`), not as `src.*`. Entry points: `langgraph.json` maps the graph to `./src/agent.py:agent` and auth to `./src/auth.py:auth`; Docker runs `src/whatsapp_server.py`.
 
-## Notes
-
-- `.env` is read from the CWD by pydantic-settings, so tests and CLIs behave differently when run from another directory; the local `.env` also shadows settings defaults in `tests/test_config.py`.
-- ADR-006 is a Draft; ADR-001 to ADR-005 are Accepted and binding. Each tool has a PRD that defines its contract.
-- `../docs/diagrams/` holds the SVG/Excalidraw architecture sources; `ingestion_errors.log` is a runtime artifact.
-- The Docker build context is `backend/`, not the repo root.
-- Tool-layer failures raise one `*Error(RuntimeError)` per tool with generic text; connection strings and DSNs never reach error messages or logs.
-- `scripts/index_documents.py` skips unchanged files by model-qualified chunk hash (`--force` re-embeds); in directory mode it purges chunks of sources no longer on disk, so deleting a document also deletes its index rows.
+Deeper knowledge lives in `src/db/AGENTS.md`, `src/tools/AGENTS.md` and `tests/AGENTS.md`; binding decisions and setup guides live in the repo-root `docs/` folder. Commands live in this directory's `README.md`.
