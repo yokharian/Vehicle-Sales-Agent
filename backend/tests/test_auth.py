@@ -18,7 +18,8 @@ import auth
 
 
 ISSUER = auth.cognito.issuer
-CLIENT_ID = auth.cognito.app_client_id
+# Any client id from the configured accepted set; conftest seeds exactly one.
+CLIENT_ID = next(iter(auth.cognito.expected_app_client_ids))
 
 _PRIVATE_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 _OTHER_PRIVATE_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
