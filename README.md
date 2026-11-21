@@ -24,9 +24,9 @@ There is no Python manifest or npm workspace at the repo root. Every command run
 - Python 3.12 and [`uv`](https://docs.astral.sh/uv/)
 - Node.js 22 with Corepack. pnpm 10.5.1 is pinned in `web/package.json` under `packageManager`, so `corepack pnpm ...` works without installing pnpm globally.
 - Docker and Docker Compose, for the backend stack and for the test suite
-- A model provider key (OpenAI or OpenRouter) for chat and embeddings
+- An API key for an OpenAI-compatible chat and embeddings endpoint
 - Twilio credentials for the WhatsApp path
-- A Supabase Postgres project with the `pgvector` extension for the catalog and the knowledge base
+- A PostgreSQL database with the `pgvector` extension for the catalog and the knowledge base
 
 ## Backend quickstart
 
@@ -105,7 +105,7 @@ The web app talks to AWS hosted resources, and CI creates none of them. Provisio
 - **Amplify app** for hosting the static export, created with no connected repository, no auto branch creation and `enableAutoBuild: false` on its branch.
 - **GitHub secrets and variables**: secrets `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_ASSISTANT_ID`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST`, `AMPLIFY_OUTPUTS_JSON` and `AWS_DEPLOY_ROLE_ARN`; variables `AMPLIFY_APP_ID`, `AMPLIFY_BRANCH` and `AWS_REGION`. The deploy role must trust the GitHub Actions OIDC provider and be allowed to call the Amplify hosting deployment APIs on that app.
 
-The Postgres database is Supabase rather than AWS, but the `pgvector` extension has to be enabled there before the document search works.
+The Postgres database needs the `pgvector` extension enabled before the document search works.
 
 ## Further reading
 

@@ -23,7 +23,7 @@
 ## CONVENTIONS
 
 - Every module prepends `src/` to `sys.path` BEFORE importing app code (`sys.path.append(str(Path(__file__).parent.parent / "src"))`). Imports are flat (`from config import ...`, `import db.database as db_module`) — never `from src.x import ...`.
-- `conftest.py` seeds placeholder env vars at import (`DATABASE_URI`/`PGVECTOR_URI` at localhost:59999, `OPENAI_API_KEY`, `COGNITO_*`) because `db.database` and `src.auth` build settings and engines at import time.
+- `conftest.py` seeds placeholder env vars at import (`DATABASE_URI`/`PGVECTOR_URI` at localhost:59999, `LLM_API_KEY`, `DOCUMENT_EMBEDDING_API_KEY`, `COGNITO_*`) because `db.database` and `src.auth` build settings and engines at import time.
 - Three session-scoped autouse fixtures, chained in order: `_postgres_with_pgvector` (testcontainers `pgvector/pgvector:pg16`, enables `vector` + `fuzzystrmatch`, then REPLACES `db_module.engine` and `db_module.pgvector_engine` by assignment) → `_seed_catalog_db` (7 vehicles, stock_id 1001-1007) → `_fake_embeddings_for_document_search` (monkeypatches `document_search.resolve_embeddings` to `DeterministicFakeEmbedding(size=768)`).
 - Because those fixtures are autouse and session-scoped, the container starts for the entire run — including the "pure" tests. Only the fixtures can be bypassed with `-p no:cacheprovider`-style tricks, not by choosing a file.
 - Embeddings are always faked, so no provider API key or network access is needed.
@@ -40,5 +40,5 @@
 ## CAVEATS (verified 2026-10-12)
 
 - **Docker is required and is running in this checkout (verified 2026-10-13).** `docker info` succeeds, so the session fixtures can start the container.
-- **The root `.env` leaks into settings assertions.** Verified with a clean environment: from the repo root `DocumentSearchSettings()` resolves `embedding_provider=openrouter` (the `.env` value), while the same command from `/tmp` resolves `openai` (the code default). Tests that assert defaults therefore depend on your local `.env` — run from a clean worktree or unset `DOCUMENT_*`.
+- **The local `.env` leaks into manual settings instantiation.** The suite neutralizes it per test via `_hermetic_settings`, but running `DocumentSearchSettings()` by hand from `backend/` still reads the local `.env` and can shadow the code defaults. Run from a clean worktree or unset the relevant vars when checking defaults by hand.
 - `ruff` is configured in `pyproject.toml` but is NOT in the `dev` dependency group (only `pytest` and `testcontainers`), and `.venv/bin/ruff` does not exist — invoke it as `uvx ruff`.

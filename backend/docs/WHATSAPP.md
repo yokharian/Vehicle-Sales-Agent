@@ -99,7 +99,7 @@ request, so the server can start even with incomplete Twilio credentials.
 | `"Twilio WhatsApp number not configured"` | Set `TWILIO_WHATSAPP_NUMBER` (with `whatsapp:` prefix) |
 | Webhook not receiving messages | Verify the webhook URL in the Twilio console and that the server is publicly reachable |
 | Message not sending | Check the destination number format and the sender number prefix |
-| Agent errors on every message | Verify the model provider keys (`OPENROUTER_API_KEY` or `OPENAI_API_KEY`) and the database URL (`POSTGRES_URL_NON_POOLING`) |
+| Agent errors on every message | Verify the chat and embedding API keys (`LLM_API_KEY`, `DOCUMENT_EMBEDDING_API_KEY`) and the database URL (`DATABASE_URI`) |
 
 Enable debug logging with the `--debug` flag; application logs go to stdout.
 

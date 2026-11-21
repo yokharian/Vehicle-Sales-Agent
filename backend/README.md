@@ -81,7 +81,7 @@ The container runs CSV ingestion on startup, then serves the WhatsApp server on 
 
 Vercel builds [`backend/Dockerfile`](Dockerfile) and serves it with Fluid Compute enabled. That image is
 the LangGraph API server: it exposes the agent graph (`src/agent.py:agent`) and the Cognito-authenticated API, with
-the catalog, document and financing tools reading Supabase Postgres.
+the catalog, document and financing tools reading PostgreSQL.
 
 `vercel.json` pins the Container framework preset and `fluid: true`:
 
@@ -105,9 +105,8 @@ The public hostname is terminated by a Kong reverse proxy, so no domain has to b
 upstreams to the production deployment URL (`https://<project>.vercel.app`). Kong is also the place to attach the Twilio
 webhook path, because this image serves the LangGraph API, not the WhatsApp server.
 
-Environment variables: the Supabase ones (`POSTGRES_URL_NON_POOLING`, `POSTGRES_URL`, `POSTGRES_PRISMA_URL`, and the
-discrete `POSTGRES_HOST` / `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DATABASE`) resolve the database URL, with
-the non-pooling URL preferred. `LANGGRAPH_RUNTIME_EDITION=inmem` keeps the LangGraph run queue in memory and needs no
+Environment variables: `DATABASE_URI` resolves the database URL (with `PGVECTOR_URI`
+defaulting to it), so a single-database setup needs one URL. `LANGGRAPH_RUNTIME_EDITION=inmem` keeps the LangGraph run queue in memory and needs no
 runtime database, and `REDIS_URI=fake` satisfies the queue's configuration. `PORT` must match the port the image
 listens on (`8000`).
 

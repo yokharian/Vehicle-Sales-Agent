@@ -9,7 +9,7 @@ Three `@tool` functions the agent can call, each with pydantic input/output sche
 | Vehicle search | `catalog_search.py` | `catalog_search_tool`, `VehiclePreferences` → `VehicleResult`; dual output (structured + CSV/JSON string) |
 | Knowledge retrieval | `document_search.py` | `document_search_tool`, hybrid BM25Plus + dense `EnsembleRetriever` |
 | Financing math | `financing_calculator.py` | `financing_calculator_tool`, `FinancingInput` → `FinancingResult` |
-| Provider/key resolution | `document_search.resolve_embeddings` | openai vs openrouter, key from `DocumentSearchSettings` |
+| Provider/key resolution | `document_search.resolve_embeddings` | OpenAI-compatible endpoint, key from `DocumentSearchSettings` |
 
 ## CONVENTIONS
 
