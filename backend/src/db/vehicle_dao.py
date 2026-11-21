@@ -1,7 +1,3 @@
-"""
-Data access layer for vehicle operations.
-"""
-
 from typing import List, Optional
 
 from sqlalchemy import case, distinct, func, or_
@@ -15,15 +11,6 @@ FUZZY_MATCH_THRESHOLD = 60
 
 
 def get_makes(limit: int = 5) -> List[str]:
-    """
-    Get distinct vehicle makes from the database.
-
-    Args:
-        limit: Maximum number of makes to return
-
-    Returns:
-        List of unique vehicle makes
-    """
     with get_session_sync() as session:
         stmt = select(distinct(Vehicle.make)).limit(limit)
         results = session.exec(stmt).all()
@@ -31,15 +18,6 @@ def get_makes(limit: int = 5) -> List[str]:
 
 
 def get_models(limit: int = 5) -> List[str]:
-    """
-    Get distinct vehicle models from the database.
-
-    Args:
-        limit: Maximum number of models to return
-
-    Returns:
-        List of unique vehicle models
-    """
     with get_session_sync() as session:
         stmt = select(distinct(Vehicle.model)).limit(limit)
         results = session.exec(stmt).all()
@@ -47,16 +25,6 @@ def get_models(limit: int = 5) -> List[str]:
 
 
 def get_models_by_make(make: str, limit: int = 5) -> List[str]:
-    """
-    Get distinct vehicle models for a specific make.
-
-    Args:
-        make: Vehicle make to filter by
-        limit: Maximum number of models to return
-
-    Returns:
-        List of unique vehicle models for the specified make
-    """
     with get_session_sync() as session:
         stmt = select(distinct(Vehicle.model)).where(Vehicle.make == make).limit(limit)
         results = session.exec(stmt).all()
@@ -64,23 +32,6 @@ def get_models_by_make(make: str, limit: int = 5) -> List[str]:
 
 
 def fuzzy_match_make(make_input: str) -> str | None:
-    """
-    Find the catalog make fuzzy-matching the user input.
-
-    Scoring runs entirely in PostgreSQL (fuzzystrmatch): candidates are the
-    distinct catalog makes; containment between candidate and input scores
-    90, otherwise the score is the normalized Levenshtein similarity
-    percentage. The best candidate at or above FUZZY_MATCH_THRESHOLD wins,
-    with alphabetical tie-break.
-
-    Args:
-        make_input: User input for the vehicle make
-
-    Returns:
-        Canonical catalog make, or None when the input is empty, exceeds
-        PostgreSQL's 255-byte levenshtein limit, or no candidate reaches
-        FUZZY_MATCH_THRESHOLD
-    """
     query = make_input.strip().lower()
     if not query or len(query.encode("utf-8")) > 255:
         return None
@@ -103,22 +54,6 @@ def fuzzy_match_make(make_input: str) -> str | None:
 
 
 def fuzzy_match_model(model_input: str, make: str | None = None) -> str | None:
-    """
-    Find the catalog model fuzzy-matching the user input.
-
-    Scoring runs entirely in PostgreSQL (fuzzystrmatch), as in
-    fuzzy_match_make(). When make is given, candidates are restricted to
-    models of that make (scoping is case-insensitive).
-
-    Args:
-        model_input: User input for the vehicle model
-        make: Optional make to scope the candidate models (case-insensitive)
-
-    Returns:
-        Canonical catalog model, or None when the input is empty, exceeds
-        PostgreSQL's 255-byte levenshtein limit, or no candidate reaches
-        FUZZY_MATCH_THRESHOLD
-    """
     query = model_input.strip().lower()
     if not query or len(query.encode("utf-8")) > 255:
         return None
@@ -144,65 +79,22 @@ def fuzzy_match_model(model_input: str, make: str | None = None) -> str | None:
 
 
 def get_vehicle_by_id(db: Session, stock_id: int) -> Optional[Vehicle]:
-    """
-    Get vehicle by stock_id.
-
-    Args:
-        db: Database session
-        stock_id: Vehicle stock ID
-
-    Returns:
-        Vehicle object or None if not found
-    """
     statement = select(Vehicle).where(Vehicle.stock_id == stock_id)
     vehicle = db.exec(statement).first()
     return vehicle
 
 
 def get_vehicles_by_make_model(db: Session, make: str, model: str) -> List[Vehicle]:
-    """
-    Get vehicles by make and model.
-
-    Args:
-        db: Database session
-        make: Vehicle make
-        model: Vehicle model
-
-    Returns:
-        List of Vehicle objects
-    """
     statement = select(Vehicle).where(Vehicle.make == make.lower(), Vehicle.model == model.lower())
     return list(db.exec(statement))
 
 
 def get_vehicles_by_price_range(db: Session, min_price: float, max_price: float) -> List[Vehicle]:
-    """
-    Get vehicles within a price range.
-
-    Args:
-        db: Database session
-        min_price: Minimum price
-        max_price: Maximum price
-
-    Returns:
-        List of Vehicle objects
-    """
     statement = select(Vehicle).where(Vehicle.price >= min_price, Vehicle.price <= max_price)
     return list(db.exec(statement))
 
 
 def get_vehicles_by_year_range(db: Session, min_year: int, max_year: int) -> List[Vehicle]:
-    """
-    Get vehicles within a year range.
-
-    Args:
-        db: Database session
-        min_year: Minimum year
-        max_year: Maximum year
-
-    Returns:
-        List of Vehicle objects
-    """
     statement = select(Vehicle).where(Vehicle.year >= min_year, Vehicle.year <= max_year)
     return list(db.exec(statement))
 
@@ -218,23 +110,6 @@ def search_vehicles(
     km_max: Optional[int] = None,
     features: Optional[dict] = None,
 ) -> List[Vehicle]:
-    """
-    Search vehicles with multiple criteria.
-
-    Args:
-        db: Database session
-        make: Vehicle make filter
-        model: Vehicle model filter
-        min_year: Minimum year filter
-        max_year: Maximum year filter
-        min_price: Minimum price filter
-        max_price: Maximum price filter
-        km_max: Maximum km filter
-        features: Features filter dictionary
-
-    Returns:
-        List of Vehicle objects matching criteria
-    """
     statement = select(Vehicle)
 
     if make:

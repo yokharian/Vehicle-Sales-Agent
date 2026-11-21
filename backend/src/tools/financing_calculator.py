@@ -1,12 +1,3 @@
-"""
-LangChain tool for deterministic vehicle financing calculations.
-
-Implements the financing_calculator PRD: fixed 10% annual interest rate
-defined by the application, 3-6 year terms, standard fixed-rate amortization,
-and Decimal-based monetary arithmetic so the LLM never computes or alters
-financial values.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -28,22 +19,18 @@ _CENT = Decimal("0.01")
 
 
 class FinancingCalculationError(RuntimeError):
-    """Raised when the financing calculation fails, without leaking internals."""
+    pass
 
 
 def _money(value: Decimal) -> Decimal:
-    """Round a monetary amount to two decimals, half-up."""
     return value.quantize(_CENT, rounding=ROUND_HALF_UP)
 
 
 def _as_decimal(value: float) -> Decimal:
-    """Convert a monetary input deterministically via its shortest repr."""
     return Decimal(str(value))
 
 
 class FinancingInput(BaseModel):
-    """Input schema for the financing calculator."""
-
     vehicle_price: float = Field(description="Total vehicle price in USD", gt=0)
     down_payment: float = Field(description="Customer down payment in USD", ge=0)
     term_years: int = Field(
@@ -54,8 +41,6 @@ class FinancingInput(BaseModel):
 
 
 class FinancingResult(BaseModel):
-    """Structured financing plan returned to the agent."""
-
     vehicle_price: float = Field(description="Total vehicle price in USD")
     down_payment: float = Field(description="Customer down payment in USD")
     financed_amount: float = Field(

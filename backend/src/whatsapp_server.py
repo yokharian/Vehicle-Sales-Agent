@@ -1,10 +1,3 @@
-"""
-WhatsApp webhook server for the vehicle sales assistant.
-
-FastAPI application that receives Twilio WhatsApp messages, forwards them
-to the LangChain agent, and answers with TwiML responses.
-"""
-
 import logging
 import sys
 from pathlib import Path
@@ -36,10 +29,7 @@ class HealthResponse(BaseModel):
 
 
 class WhatsAppVehicleAssistant:
-    """WhatsApp Vehicle Assistant using the full AI agent."""
-
     def __init__(self):
-        """Initialize the WhatsApp assistant."""
         settings = TwilioSettings()
 
         try:
@@ -51,7 +41,6 @@ class WhatsAppVehicleAssistant:
         self._whatsapp_number = settings.whatsapp_number
 
     def send_whatsapp_message(self, to_number: str, message: str) -> Dict[str, Any]:
-        """Send a WhatsApp message using Twilio."""
         if not self.twilio_client:
             return {"success": False, "error": "Twilio client not initialized"}
 
@@ -85,7 +74,6 @@ class WhatsAppVehicleAssistant:
             return {"success": False, "error": str(e)}
 
     def handle_whatsapp_message(self, from_number: str, message_body: str) -> str:
-        """Handle incoming WhatsApp messages and generate responses."""
         try:
             logger.info(f"Received WhatsApp message from {from_number}: {message_body}")
             response = self._handle_with_ai_agent(message_body)
@@ -103,7 +91,6 @@ class WhatsAppVehicleAssistant:
 
     @staticmethod
     def _handle_with_ai_agent(message: str) -> str:
-        """Handle message using the AI agent."""
         try:
             result = chat(message)
             if result["success"]:
@@ -119,7 +106,6 @@ assistant: WhatsAppVehicleAssistant | None = None
 
 
 def create_fastapi_app() -> FastAPI:
-    """Create FastAPI application for WhatsApp webhook handling."""
     app = FastAPI(
         title="WhatsApp Vehicle Assistant",
         description="AI-powered vehicle search via WhatsApp using Twilio",
@@ -186,7 +172,6 @@ def create_fastapi_app() -> FastAPI:
 
 
 def start_whatsapp_server(host: str = "0.0.0.0", port: int = 5000, debug: bool = False):
-    """Start the WhatsApp webhook server."""
     import uvicorn
 
     app = create_fastapi_app()

@@ -1,7 +1,3 @@
-"""
-Tests for catalog search tools.
-"""
-
 import os
 import sys
 from pathlib import Path
@@ -22,10 +18,7 @@ from tools.catalog_search import (
 
 
 class TestVehiclePreferences:
-    """Test VehiclePreferences schema."""
-
     def test_valid_preferences(self):
-        """Test valid preference creation."""
         prefs = VehiclePreferences(
             budget_min=10000,
             budget_max=25000,
@@ -45,7 +38,6 @@ class TestVehiclePreferences:
         assert prefs.max_results == 5
 
     def test_minimal_preferences(self):
-        """Test minimal preference creation."""
         prefs = VehiclePreferences()
 
         assert prefs.budget_min is None
@@ -58,7 +50,6 @@ class TestVehiclePreferences:
         assert prefs.max_results == 5
 
     def test_invalid_budget(self):
-        """Test invalid budget validation."""
         with pytest.raises((ValueError, ValidationError)):
             VehiclePreferences(budget_min=-1000)
 
@@ -66,7 +57,6 @@ class TestVehiclePreferences:
             VehiclePreferences(budget_max=-5000)
 
     def test_invalid_max_results(self):
-        """Test invalid max_results validation."""
         with pytest.raises((ValueError, ValidationError)):
             VehiclePreferences(max_results=0)
 
@@ -75,10 +65,7 @@ class TestVehiclePreferences:
 
 
 class TestVehicleResult:
-    """Test VehicleResult schema."""
-
     def test_valid_result(self):
-        """Test valid result creation."""
         result = VehicleResult(
             stock_id=1001,
             make="toyota",
@@ -100,7 +87,6 @@ class TestVehicleResult:
         assert result.features == ["bluetooth", "air_conditioning"]
 
     def test_result_with_none_version(self):
-        """Test result with None version."""
         result = VehicleResult(
             stock_id=1002,
             make="honda",
@@ -116,10 +102,7 @@ class TestVehicleResult:
 
 
 class TestCatalogSearchTool:
-    """Test catalog search implementation."""
-
     def test_catalog_search_tool_creation(self):
-        """Test that the catalog search tool is properly created."""
         from tools.catalog_search import catalog_search_tool
 
         assert catalog_search_tool.name == "catalog_search"
@@ -127,7 +110,6 @@ class TestCatalogSearchTool:
         assert catalog_search_tool.args_schema is not None
 
     def test_vehicle_preferences_validation(self):
-        """Test VehiclePreferences validation."""
         from tools.catalog_search import VehiclePreferences
 
         prefs = VehiclePreferences(make="Toyota", budget_max=50000, max_results=5)
@@ -141,7 +123,6 @@ class TestCatalogSearchTool:
         assert prefs_none.max_results == 5  # Default value
 
     def test_catalog_search_comprehensive_scenarios(self):
-        """Test catalog search with comprehensive scenarios."""
         test_cases = [
             {
                 "name": "Search by make and budget",
@@ -198,7 +179,6 @@ class TestCatalogSearchTool:
                 )
 
     def test_catalog_search_tool_integration(self):
-        """Test catalog search tool integration with LangChain."""
         from tools.catalog_search import catalog_search_tool
 
         assert catalog_search_tool.name == "catalog_search"
@@ -220,7 +200,6 @@ class TestCatalogSearchTool:
             assert isinstance(e, (ValueError, TypeError, KeyError, AttributeError, ValidationError))
 
     def test_catalog_search_performance_scenarios(self):
-        """Test catalog search performance with different scenarios."""
         import time
 
         search_scenarios = [
@@ -270,7 +249,6 @@ class TestCatalogSearchTool:
                 )
 
     def test_catalog_search_edge_cases(self):
-        """Test catalog search error handling and edge cases."""
         edge_cases = [
             {
                 "name": "Invalid budget range",
@@ -305,7 +283,6 @@ class TestCatalogSearchTool:
                 assert isinstance(e, (ValueError, TypeError, KeyError, AttributeError))
 
     def test_langchain_tools_metadata(self):
-        """Test LangChain tool metadata and configuration."""
         from tools.catalog_search import catalog_search_tool
 
         assert catalog_search_tool.name == "catalog_search"

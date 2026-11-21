@@ -1,7 +1,3 @@
-"""
-Tests for the document search tool and retrieval stack.
-"""
-
 import importlib.util
 import logging
 import os
@@ -75,15 +71,12 @@ SEED_CHUNKS = [
 
 @pytest.fixture
 def document_index():
-    """Seed the shared pgvector container with a deterministic chunk index."""
     ensure_tables()
     reindex(SEED_CHUNKS, FAKE_EMBEDDINGS)
     yield FAKE_EMBEDDINGS
 
 
 class TestDocumentDiscovery:
-    """Test document discovery rules."""
-
     def test_discovers_supported_files_sorted(self, tmp_path):
         (tmp_path / "b.txt").write_text("texto", encoding="utf-8")
         (tmp_path / "a.md").write_text("# titulo", encoding="utf-8")
@@ -107,8 +100,6 @@ class TestDocumentDiscovery:
 
 
 class TestChunking:
-    """Test chunk sizes, overlap, and metadata integrity."""
-
     def test_chunks_respect_size_limit(self, tmp_path):
         long_text = "palabra " * 200
         (tmp_path / "long.txt").write_text(long_text, encoding="utf-8")
@@ -175,8 +166,6 @@ class TestChunking:
 
 
 class TestEmbeddingConfig:
-    """Test embedding resolution through configuration."""
-
     def test_embeddings_resolved_against_default_endpoint(self, monkeypatch):
         monkeypatch.setenv("DOCUMENT_EMBEDDING_API_KEY", "test-embedding-key")
         monkeypatch.delenv("DOCUMENT_EMBEDDING_API_URL", raising=False)
@@ -207,8 +196,6 @@ class TestEmbeddingConfig:
 
 @pytest.mark.usefixtures("document_index")
 class TestDocumentStore:
-    """Test pgvector persistence and dense retrieval."""
-
     def test_reindex_and_load_roundtrip(self):
         loaded = load_chunks()
 
@@ -251,8 +238,6 @@ class TestDocumentStore:
 
 @pytest.mark.usefixtures("document_index")
 class TestBM25Retrieval:
-    """Test lexical retrieval over the indexed corpus."""
-
     def test_exact_term_retrieval(self):
         chunks = load_chunks()
         retriever = build_bm25_retriever(chunks, candidates=3)
@@ -273,8 +258,6 @@ class TestBM25Retrieval:
 
 
 class TestHybridRetrieval:
-    """Test ensemble retrieval combining BM25 and dense search."""
-
     def test_hybrid_returns_corpus_documents_only(self, document_index):
         chunks = load_chunks()
         settings = DocumentSearchSettings(
@@ -306,8 +289,6 @@ class TestHybridRetrieval:
 
 
 class TestDocumentSearchTool:
-    """Test the document_search tool contract."""
-
     def test_tool_attributes(self):
         assert document_search_tool.name == "document_search"
         assert "knowledge" in document_search_tool.description.lower()
@@ -384,8 +365,6 @@ class TestDocumentSearchTool:
 
 
 class TestGranularIngest:
-    """Test granular ingest primitives, schema migration, and the indexing CLI."""
-
     def test_upsert_is_idempotent(self, document_index):
         financing_chunks = [
             chunk for chunk in SEED_CHUNKS if chunk.metadata["source"] == "financing.md"

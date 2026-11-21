@@ -1,12 +1,3 @@
-"""
-AI Agent for vehicle search and document queries using LangChain agents.
-
-This agent can:
-- Search vehicle catalogs with fuzzy matching
-- Find relevant documents using semantic search
-- Provide intelligent recommendations based on user preferences
-"""
-
 import sys
 from pathlib import Path
 from typing import Any
@@ -49,7 +40,6 @@ langfuse_handler = CallbackHandler()
 
 
 def build_chat_model(model_name: str) -> ChatOpenAI:
-    """Build the chat model against the configured OpenAI-compatible endpoint."""
     if not SETTINGS.api_key:
         raise ValueError("LLM_API_KEY is not set")
     return ChatOpenAI(
@@ -75,15 +65,6 @@ agent = create_agent(
 
 
 def chat(message: str) -> dict[str, Any]:
-    """
-    Chat with the agent.
-
-    Args:
-        message: User message/query
-
-    Returns:
-        Dictionary containing response and metadata
-    """
     try:
         inputs = {"messages": [{"role": "user", "content": message}]}
 

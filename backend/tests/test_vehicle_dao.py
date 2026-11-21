@@ -1,7 +1,3 @@
-"""
-Tests for vehicle data access layer.
-"""
-
 import pytest
 import sys
 from pathlib import Path
@@ -20,24 +16,19 @@ from db.vehicle_dao import (
 
 
 class TestVehicleDAO:
-    """Test cases for vehicle data access layer."""
-
     @pytest.fixture
     def test_engine(self):
-        """Create test database engine."""
         engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(engine)
         return engine
 
     @pytest.fixture
     def test_session(self, test_engine):
-        """Create test database session."""
         with Session(test_engine) as session:
             yield session
 
     @pytest.fixture
     def sample_vehicles(self, test_session):
-        """Create sample vehicles for testing."""
         vehicles = [
             Vehicle(
                 stock_id=1001,
@@ -87,7 +78,6 @@ class TestVehicleDAO:
         return vehicles
 
     def test_get_vehicle_by_id_success(self, test_session, sample_vehicles):
-        """Test successful vehicle retrieval by ID."""
         vehicle = get_vehicle_by_id(test_session, 1001)
 
         assert vehicle is not None
@@ -98,12 +88,10 @@ class TestVehicleDAO:
         assert vehicle.price == 18500.00
 
     def test_get_vehicle_by_id_not_found(self, test_session, sample_vehicles):
-        """Test vehicle retrieval with non-existent ID."""
         vehicle = get_vehicle_by_id(test_session, 9999)
         assert vehicle is None
 
     def test_get_vehicles_by_make_model(self, test_session, sample_vehicles):
-        """Test getting vehicles by make and model."""
         toyota_corollas = get_vehicles_by_make_model(test_session, "toyota", "corolla")
 
         assert len(toyota_corollas) == 1
@@ -112,7 +100,6 @@ class TestVehicleDAO:
         assert toyota_corollas[0].model == "corolla"
 
     def test_get_vehicles_by_price_range(self, test_session, sample_vehicles):
-        """Test getting vehicles within price range."""
         expensive_vehicles = get_vehicles_by_price_range(test_session, 18000, 25000)
 
         assert len(expensive_vehicles) == 2
@@ -121,7 +108,6 @@ class TestVehicleDAO:
         assert 1003 in stock_ids  # Toyota Camry - $22,000
 
     def test_get_vehicles_by_year_range(self, test_session, sample_vehicles):
-        """Test getting vehicles within year range."""
         recent_vehicles = get_vehicles_by_year_range(test_session, 2020, 2021)
 
         assert len(recent_vehicles) == 2
@@ -130,7 +116,6 @@ class TestVehicleDAO:
         assert 1003 in stock_ids  # 2021 Toyota Camry
 
     def test_search_vehicles_by_make(self, test_session, sample_vehicles):
-        """Test searching vehicles by make."""
         toyota_vehicles = search_vehicles(test_session, make="toyota")
 
         assert len(toyota_vehicles) == 2
@@ -139,7 +124,6 @@ class TestVehicleDAO:
         assert 1003 in stock_ids  # Toyota Camry
 
     def test_search_vehicles_by_price_and_year(self, test_session, sample_vehicles):
-        """Test searching vehicles with multiple criteria."""
         results = search_vehicles(
             test_session, min_price=15000, max_price=20000, min_year=2019, max_year=2020
         )
@@ -150,7 +134,6 @@ class TestVehicleDAO:
         assert 1002 in stock_ids  # 2019 Honda Civic - $16,800
 
     def test_search_vehicles_no_results(self, test_session, sample_vehicles):
-        """Test searching vehicles with no matching criteria."""
         results = search_vehicles(test_session, make="bmw", min_price=50000)
 
         assert len(results) == 0

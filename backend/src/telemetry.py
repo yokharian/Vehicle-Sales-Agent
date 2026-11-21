@@ -1,10 +1,3 @@
-"""Sentry SDK initialization shared by the application entry points.
-
-Initialization is idempotent: every entry module may call :func:`init_sentry`
-without sending duplicate events or spans. When no DSN is configured the SDK
-stays disabled, so local scripts and tests run without network side effects.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -19,13 +12,6 @@ logger = logging.getLogger(__name__)
 
 
 def init_sentry(settings: SentrySettings | None = None) -> bool:
-    """Initialize the Sentry SDK once.
-
-    Returns True when the SDK is active, False when no DSN is configured.
-    FastAPI and LangChain integrations are discovered from the installed
-    packages; LangChain is declared explicitly so agent tracing stays wired
-    even if it stops being enabled by default.
-    """
     if sentry_sdk.get_client().is_active():
         return True
 

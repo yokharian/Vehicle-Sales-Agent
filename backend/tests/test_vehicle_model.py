@@ -1,7 +1,3 @@
-"""
-Tests for Vehicle model and database operations.
-"""
-
 import sys
 from pathlib import Path
 
@@ -14,10 +10,7 @@ from db.database import Vehicle
 
 
 class TestVehicleModel:
-    """Test cases for Vehicle model."""
-
     def test_vehicle_creation(self):
-        """Test creating a Vehicle instance."""
         vehicle = Vehicle(
             stock_id=1001,
             make="toyota",
@@ -42,7 +35,6 @@ class TestVehicleModel:
         assert vehicle.altura == 1.5
 
     def test_vehicle_with_minimal_data(self):
-        """Test creating Vehicle with minimal required data."""
         vehicle = Vehicle(
             stock_id=1002,
             make="honda",
@@ -61,23 +53,18 @@ class TestVehicleModel:
 
 
 class TestDatabaseOperations:
-    """Test cases for database operations."""
-
     @pytest.fixture
     def test_engine(self):
-        """Create test database engine."""
         engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(engine)
         return engine
 
     @pytest.fixture
     def test_session(self, test_engine):
-        """Create test database session."""
         with Session(test_engine) as session:
             yield session
 
     def test_vehicle_insert(self, test_session):
-        """Test inserting a vehicle into database."""
         vehicle = Vehicle(
             stock_id=1001,
             make="toyota",
@@ -97,7 +84,6 @@ class TestDatabaseOperations:
         assert retrieved.features["bluetooth"] == True
 
     def test_vehicle_update(self, test_session):
-        """Test updating a vehicle in database."""
         vehicle = Vehicle(
             stock_id=1002,
             make="honda",
@@ -121,7 +107,6 @@ class TestDatabaseOperations:
         assert retrieved.largo == 4.5
 
     def test_vehicle_query(self, test_session):
-        """Test querying vehicles from database."""
         vehicles = [
             Vehicle(
                 stock_id=1001,
@@ -164,7 +149,6 @@ class TestDatabaseOperations:
         assert len(expensive_vehicles) == 2
 
     def test_get_vehicle_by_id(self, test_session):
-        """Test getting vehicle by ID."""
         vehicle = Vehicle(
             stock_id=1001,
             make="toyota",

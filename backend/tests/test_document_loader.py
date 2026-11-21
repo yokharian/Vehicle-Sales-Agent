@@ -1,10 +1,3 @@
-"""
-Tests for the canonical ``DocumentLoader`` in ``db.document_loader``.
-
-These tests are intentionally pure (no Docker, no testcontainers): they exercise
-file discovery and chunking on a ``tmp_path``.
-"""
-
 import sys
 from pathlib import Path
 
@@ -22,8 +15,6 @@ from db.document_loader import (
 
 
 class TestDiscovery:
-    """Document discovery rules via the ``DocumentLoader`` class."""
-
     def test_discovers_supported_files_sorted_and_skips_hidden(self, tmp_path):
         (tmp_path / "a.md").write_text("# titulo", encoding="utf-8")
         (tmp_path / "b.txt").write_text("texto", encoding="utf-8")
@@ -40,8 +31,6 @@ class TestDiscovery:
 
 
 class TestChunking:
-    """Chunking behavior on ``.md`` and ``.txt`` inputs."""
-
     def test_chunk_markdown_headers_and_metadata(self, tmp_path):
         body = ("Cobertura mecánica completa. " * 60) + "\n## Exclusiones\n\n" + (
             "No cubre accidentes. " * 60
@@ -69,8 +58,6 @@ class TestChunking:
 
 
 class TestRobustness:
-    """Edge cases around malformed input."""
-
     def test_chunk_unreadable_returns_empty(self, tmp_path):
         path = tmp_path / "broken.txt"
         path.write_bytes(b"\xff\xfe\x00\xfd")
@@ -81,8 +68,6 @@ class TestRobustness:
 
 
 class TestConstantsContract:
-    """Public constants are part of the module's contract."""
-
     def test_chunk_constants(self):
         assert CHUNK_SIZE == 500
         assert CHUNK_OVERLAP == 100

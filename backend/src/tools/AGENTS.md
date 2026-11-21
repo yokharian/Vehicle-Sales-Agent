@@ -7,3 +7,4 @@ Three `@tool` functions the agent can call, each with pydantic input/output sche
 - `catalog_search_tool` (~100 lines) does validation, fuzzy resolution, DB read, feature post-filter, sorting and dual serialization in one body.
 - `document_search_tool` reloads chunks and rebuilds the BM25 index per query — the retrieval hotspot.
 - `DenseRetriever._get_relevant_documents` carries `# noqa: ARG002` on `run_manager` for interface compatibility; keep the signature.
+- `build_bm25_retriever` uses `BM25Plus`, not `BM25Okapi`: Okapi's IDF collapses to zero on this small corpus, which scores every document identically.

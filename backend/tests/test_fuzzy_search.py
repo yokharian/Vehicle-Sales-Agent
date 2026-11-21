@@ -1,7 +1,3 @@
-"""
-Test fuzzy search functionality in catalog_search.py
-"""
-
 import sys
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -22,12 +18,8 @@ from tools.catalog_search import (
 
 
 class TestFuzzySearch:
-    """Test fuzzy search functionality."""
-
     @patch("tools.catalog_search.fuzzy_match_make")
     def test_fuzzy_search_make_exact_match(self, mock_fuzzy_match_make):
-        """Test fuzzy search with exact match."""
-
         mock_fuzzy_match_make.return_value = "Toyota"
 
         result = fuzzy_search_make("Toyota")
@@ -35,8 +27,6 @@ class TestFuzzySearch:
 
     @patch("tools.catalog_search.fuzzy_match_make")
     def test_fuzzy_search_make_fuzzy_match(self, mock_fuzzy_match_make):
-        """Test fuzzy search with fuzzy match."""
-
         mock_fuzzy_match_make.return_value = "Toyota"
 
         result = fuzzy_search_make("Toyta")  # Typo in Toyota
@@ -44,8 +34,6 @@ class TestFuzzySearch:
 
     @patch("tools.catalog_search.fuzzy_match_make")
     def test_fuzzy_search_make_no_match(self, mock_fuzzy_match_make):
-        """Test fuzzy search with no good match."""
-
         mock_fuzzy_match_make.return_value = None
 
         result = fuzzy_search_make("Xyz")  # No match
@@ -53,7 +41,6 @@ class TestFuzzySearch:
 
     @patch("tools.catalog_search.fuzzy_match_model")
     def test_fuzzy_search_model_with_make(self, mock_fuzzy_match_model):
-        """Test fuzzy search for model with make filter."""
         mock_fuzzy_match_model.return_value = "Camry"
 
         result = fuzzy_search_model("Camry", make="Toyota")
@@ -61,7 +48,6 @@ class TestFuzzySearch:
 
     @patch("tools.catalog_search.fuzzy_match_model")
     def test_fuzzy_search_model_fuzzy_match(self, mock_fuzzy_match_model):
-        """Test fuzzy search for model with fuzzy match."""
         mock_fuzzy_match_model.return_value = "Camry"
 
         result = fuzzy_search_model("Camri", make="Toyota")  # Typo in Camry
@@ -70,7 +56,6 @@ class TestFuzzySearch:
     @patch("tools.catalog_search.search_vehicles")
     @patch("tools.catalog_search.fuzzy_match_make")
     def test_catalog_search_with_fuzzy_make(self, mock_fuzzy_match_make, mock_search_vehicles):
-        """Test catalog search with fuzzy make matching."""
         mock_fuzzy_match_make.return_value = "Toyota"
 
         mock_vehicle = Mock()
@@ -99,7 +84,6 @@ class TestFuzzySearch:
 
     @patch("tools.catalog_search.fuzzy_match_make")
     def test_catalog_search_no_fuzzy_match(self, mock_fuzzy_match_make):
-        """Test catalog search when no fuzzy match is found."""
         mock_fuzzy_match_make.return_value = None
 
         preferences = {"make": "Xyz", "budget_max": 30000, "max_results": 5}  # No match
@@ -118,7 +102,6 @@ class TestFuzzySearch:
         assert "secret" not in str(excinfo.value)
 
     def test_fuzzy_search_comprehensive_scenarios(self):
-        """Test comprehensive fuzzy search scenarios with various typos."""
         test_cases = [
             {
                 "name": "Toyota with typo",
@@ -186,7 +169,6 @@ class TestFuzzySearch:
                     pass  # Accept the error for expected results cases
 
     def test_dao_integration_functionality(self):
-        """Test DAO integration functionality."""
         from db.vehicle_dao import get_makes, get_models, get_models_by_make
 
         makes = get_makes(limit=10)
@@ -212,7 +194,6 @@ class TestFuzzySearch:
                 assert len(model) > 0, "Model should not be empty"
 
     def test_langchain_tool_integration(self):
-        """Test LangChain tool integration."""
         from tools.catalog_search import catalog_search_tool
 
         assert hasattr(catalog_search_tool, "name"), "Tool should have a name"
@@ -242,7 +223,6 @@ class TestFuzzySearch:
             assert "Error" in str(e) or "Exception" in str(e), f"Unexpected error type: {e}"
 
     def test_fuzzy_matching_accuracy(self):
-        """Test fuzzy matching accuracy with various typos."""
         from tools.catalog_search import fuzzy_search_make
 
         # Catalog values are stored normalized (lowercase) by the ingestion.
@@ -270,7 +250,6 @@ class TestFuzzySearch:
                     assert "Error" in str(e) or "Exception" in str(e), f"Unexpected error type: {e}"
 
     def test_search_performance_scenarios(self):
-        """Test search performance with different parameters."""
         import time
 
         search_scenarios = [
@@ -332,8 +311,6 @@ class TestFuzzySearch:
 
 
 class TestFuzzyMatchDao:
-    """Test DAO fuzzy matching against the seeded PostgreSQL catalog (no mocks)."""
-
     def test_exact_match(self):
         assert fuzzy_match_make("toyota") == "toyota"
 

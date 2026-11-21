@@ -1,7 +1,3 @@
-"""
-Tests for LangChain tool schemas.
-"""
-
 import os
 import sys
 from pathlib import Path
@@ -21,10 +17,7 @@ from tools.financing_calculator import financing_calculator_tool
 
 
 class TestCatalogSearchToolSchema:
-    """Test catalog search tool schema."""
-
     def test_tool_attributes(self):
-        """Test catalog search tool has required attributes."""
         assert hasattr(catalog_search_tool, "name")
         assert hasattr(catalog_search_tool, "description")
         assert hasattr(catalog_search_tool, "func")
@@ -36,7 +29,6 @@ class TestCatalogSearchToolSchema:
         assert catalog_search_tool.args_schema is not None
 
     def test_schema_valid_inputs(self):
-        """Test catalog search tool schema validation."""
         schema = catalog_search_tool.args_schema
 
         valid_inputs = {
@@ -53,7 +45,6 @@ class TestCatalogSearchToolSchema:
         assert validated.max_results == 5
 
     def test_schema_defaults(self):
-        """Test catalog search tool schema default values."""
         schema = catalog_search_tool.args_schema
 
         minimal_inputs = {"make": "Honda"}
@@ -62,7 +53,6 @@ class TestCatalogSearchToolSchema:
         assert validated.max_results == 5  # Default value
 
     def test_schema_rejects_invalid_inputs(self):
-        """Test catalog search tool schema rejects invalid inputs."""
         schema = catalog_search_tool.args_schema
 
         invalid_inputs = [
@@ -77,10 +67,7 @@ class TestCatalogSearchToolSchema:
 
 
 class TestDocumentSearchToolSchema:
-    """Test document search tool schema."""
-
     def test_tool_attributes(self):
-        """Test document search tool has required attributes."""
         assert hasattr(document_search_tool, "name")
         assert hasattr(document_search_tool, "description")
         assert hasattr(document_search_tool, "func")
@@ -92,7 +79,6 @@ class TestDocumentSearchToolSchema:
         assert document_search_tool.args_schema is not None
 
     def test_schema_valid_inputs(self):
-        """Test document search tool schema validation."""
         schema = document_search_tool.args_schema
 
         validated = schema(**{"query": "vehicle specifications", "k": 5})
@@ -100,7 +86,6 @@ class TestDocumentSearchToolSchema:
         assert validated.k == 5
 
     def test_schema_defaults(self):
-        """Test document search tool schema default values."""
         schema = document_search_tool.args_schema
 
         validated = schema(**{"query": "test query"})
@@ -108,7 +93,6 @@ class TestDocumentSearchToolSchema:
         assert validated.k == 6  # Default value
 
     def test_schema_rejects_invalid_inputs(self):
-        """Test document search tool schema rejects invalid inputs."""
         schema = document_search_tool.args_schema
 
         invalid_inputs = [
@@ -124,10 +108,7 @@ class TestDocumentSearchToolSchema:
 
 
 class TestFinancingCalculatorToolSchema:
-    """Test financing calculator tool schema."""
-
     def test_tool_attributes(self):
-        """Test financing calculator tool has required attributes."""
         assert hasattr(financing_calculator_tool, "name")
         assert hasattr(financing_calculator_tool, "description")
         assert hasattr(financing_calculator_tool, "func")
@@ -139,7 +120,6 @@ class TestFinancingCalculatorToolSchema:
         assert financing_calculator_tool.args_schema is not None
 
     def test_schema_valid_inputs(self):
-        """Test financing calculator tool schema validation."""
         schema = financing_calculator_tool.args_schema
 
         validated = schema(vehicle_price=450000, down_payment=100000, term_years=5)
@@ -148,7 +128,6 @@ class TestFinancingCalculatorToolSchema:
         assert validated.term_years == 5
 
     def test_schema_rejects_invalid_inputs(self):
-        """Test financing calculator tool schema rejects invalid inputs."""
         schema = financing_calculator_tool.args_schema
 
         invalid_inputs = [
@@ -165,10 +144,7 @@ class TestFinancingCalculatorToolSchema:
 
 
 class TestToolSchemasConsistency:
-    """Test schema consistency across all tools."""
-
     def test_all_tools_compatible_with_langchain(self):
-        """Test that all tools are compatible with LangChain."""
         for tool in [
             catalog_search_tool,
             document_search_tool,
@@ -190,7 +166,6 @@ class TestToolSchemasConsistency:
             assert hasattr(tool.args_schema, "model_fields")
 
     def test_all_schemas_have_typed_fields(self):
-        """Test that tool schemas are consistent and valid."""
         for tool in [
             catalog_search_tool,
             document_search_tool,

@@ -1,11 +1,3 @@
-"""
-LangChain tool for deterministic vehicle catalog search over PostgreSQL.
-
-structured filters with
-fuzzy make/model matching, sorting, result limiting, and controlled errors
-that never leak database credentials.
-"""
-
 from __future__ import annotations
 
 import csv
@@ -38,11 +30,10 @@ _REVERSE_SORT = {"price_desc", "year_desc"}
 
 
 class CatalogSearchDatabaseError(RuntimeError):
-    """Raised when the catalog database fails, without leaking DSNs."""
+    pass
 
 
 def fuzzy_search_make(make_input: str) -> str | None:
-    """Resolve a user-provided make against known catalog values."""
     try:
         return fuzzy_match_make(make_input)
     except SQLAlchemyError as exc:
@@ -51,7 +42,6 @@ def fuzzy_search_make(make_input: str) -> str | None:
 
 
 def fuzzy_search_model(model_input: str, make: str | None = None) -> str | None:
-    """Resolve a user-provided model within a make (or across the catalog)."""
     try:
         return fuzzy_match_model(model_input, make)
     except SQLAlchemyError as exc:
@@ -65,7 +55,6 @@ def _features_as_names(vehicle: Vehicle) -> list[str]:
 
 
 def _filter_by_features(candidates: list[Vehicle], features: list[str] | None) -> list[Vehicle]:
-    """Keep vehicles that have every requested feature enabled."""
     if not features:
         return candidates
     return [
@@ -77,8 +66,6 @@ def _filter_by_features(candidates: list[Vehicle], features: list[str] | None) -
 
 
 class VehiclePreferences(BaseModel):
-    """Input schema for vehicle search preferences."""
-
     budget_min: float | None = Field(default=None, description="Minimum budget in USD", ge=0)
     budget_max: float | None = Field(default=None, description="Maximum budget in USD", ge=0)
     make: str | None = Field(
@@ -109,8 +96,6 @@ class VehiclePreferences(BaseModel):
 
 
 class VehicleResult(BaseModel):
-    """Structured vehicle data returned to the agent."""
-
     stock_id: int = Field(description="Unique vehicle stock ID")
     make: str = Field(description="Vehicle make")
     model: str = Field(description="Vehicle model")
@@ -236,7 +221,6 @@ def catalog_search_tool(
 def _parse_vehicle_results(
     vehicles: list[VehicleResult], exclude: tuple[str, ...] = ("metadata",)
 ) -> str:
-    """Serialize results as CSV text with schema-key headers."""
     headers = list(VehicleResult.model_fields.keys() - list(exclude))
 
     buffer = io.StringIO()

@@ -1,7 +1,3 @@
-"""
-Tests for CSV ingestion functionality.
-"""
-
 import sys
 import tempfile
 from pathlib import Path
@@ -19,10 +15,7 @@ from scripts.ingest_csv import ingest_csv, parse_boolean, process_vehicle_row
 
 
 class TestParseBoolean:
-    """Test cases for parse_boolean function."""
-
     def test_truthy_values(self):
-        """Test truthy string values."""
         assert parse_boolean("Sí") == True
         assert parse_boolean("si") == True
         assert parse_boolean("yes") == True
@@ -32,7 +25,6 @@ class TestParseBoolean:
         assert parse_boolean("v") == True
 
     def test_falsy_values(self):
-        """Test falsy string values."""
         assert parse_boolean("No") == False
         assert parse_boolean("no") == False
         assert parse_boolean("false") == False
@@ -41,21 +33,16 @@ class TestParseBoolean:
         assert parse_boolean("   ") == False
 
     def test_boolean_input(self):
-        """Test boolean input."""
         assert parse_boolean(True) == True
         assert parse_boolean(False) == False
 
     def test_none_input(self):
-        """Test None input."""
         assert parse_boolean(None) == False
 
 
 class TestCSVIngestion:
-    """Test cases for CSV ingestion functionality."""
-
     @pytest.fixture
     def sample_csv_data(self):
-        """Sample CSV data for testing."""
         return {
             "stock_id": [1001, 1002, 1003],
             "make": ["Toyota", "Honda", "Ford"],
@@ -72,7 +59,6 @@ class TestCSVIngestion:
         }
 
     def test_process_vehicle_row(self, sample_csv_data):
-        """Test processing a single CSV row."""
         df = pd.DataFrame(sample_csv_data)
         row = df.iloc[0]
 
@@ -92,7 +78,6 @@ class TestCSVIngestion:
         assert result["altura"] == 1.5
 
     def test_process_vehicle_row_with_missing_data(self):
-        """Test processing row with missing optional data."""
         row_data = {
             "stock_id": 1004,
             "make": "Chevrolet",
@@ -116,7 +101,6 @@ class TestCSVIngestion:
         assert result["altura"] is None
 
     def test_process_vehicle_row_with_invalid_data(self):
-        """Test that malformed rows are rejected with a descriptive error."""
         row_data = {
             "stock_id": "invalid",
             "make": "Toyota",
@@ -133,7 +117,6 @@ class TestCSVIngestion:
             process_vehicle_row(row, row_number=3)
 
     def test_process_vehicle_row_with_missing_required_fields(self):
-        """Test that missing required text fields are rejected."""
         row = pd.Series(
             {"stock_id": 1001, "make": "", "model": "   ", "year": 2020, "km": 10, "price": 10}
         )
@@ -142,7 +125,6 @@ class TestCSVIngestion:
             process_vehicle_row(row, row_number=2)
 
     def test_process_vehicle_row_removes_accents(self):
-        """Test accent removal for matching."""
         row = pd.Series(
             {
                 "stock_id": 1002,
@@ -159,7 +141,6 @@ class TestCSVIngestion:
         assert result["model"] == "impreza"
 
     def test_process_vehicle_row_rejects_non_numeric_price(self):
-        """Test that non-numeric prices are rejected."""
         row = pd.Series(
             {
                 "stock_id": 1003,
@@ -174,7 +155,6 @@ class TestCSVIngestion:
             process_vehicle_row(row, row_number=2)
 
     def test_process_vehicle_row_rejects_invalid_year(self):
-        """Test that invalid years are rejected."""
         row = pd.Series(
             {
                 "stock_id": 1004,
@@ -189,7 +169,6 @@ class TestCSVIngestion:
             process_vehicle_row(row, row_number=2)
 
     def test_create_sample_csv_file(self):
-        """Test creating a sample CSV file for testing."""
         sample_data = {
             "stock_id": [1001, 1002],
             "make": ["Toyota", "Honda"],
@@ -217,7 +196,6 @@ class TestCSVIngestion:
             Path(f.name).unlink()
 
     def test_csv_ingestion_workflow(self):
-        """Test complete CSV ingestion workflow."""
         sample_data = {
             "stock_id": [1001, 1002, 1003, 1004],
             "make": ["Toyota", "Honda", "Ford", "Chevrolet"],
@@ -247,7 +225,6 @@ class TestCSVIngestion:
             assert isinstance(result["features"], dict)
 
     def test_boolean_parsing_comprehensive(self):
-        """Test boolean parsing with comprehensive test cases."""
         test_values = [
             ("Sí", True),
             ("si", True),
@@ -269,7 +246,6 @@ class TestCSVIngestion:
             assert result == expected, f"parse_boolean({value!r}) = {result}, expected {expected}"
 
     def test_data_validation_comprehensive(self):
-        """Test data validation with various data quality scenarios."""
         test_cases = [
             {
                 "name": "Valid data",
@@ -341,7 +317,6 @@ class TestCSVIngestion:
                     process_vehicle_row(row, row_number=2)
 
     def test_csv_ingestion_edge_cases(self):
-        """Test CSV ingestion with edge cases."""
         edge_cases = [
             {"name": "Empty DataFrame", "data": pd.DataFrame(), "expected_count": 0},
             {
@@ -391,7 +366,6 @@ class TestCSVIngestion:
                         assert isinstance(result, dict)
 
     def test_csv_ingestion_performance(self):
-        """Test CSV ingestion performance with larger datasets."""
         import time
 
         large_data = {
@@ -425,11 +399,8 @@ class TestCSVIngestion:
 
 
 class TestCSVIngestionPostgreSQL:
-    """PostgreSQL-backed ingestion tests."""
-
     @pytest.fixture
     def catalog_csv(self, tmp_path):
-        """Write a small catalog CSV and return its path."""
         csv_path = tmp_path / "catalog.csv"
         csv_path.write_text(
             "stock_id,make,model,year,version,km,price,bluetooth,car_play\n"
@@ -447,14 +418,12 @@ class TestCSVIngestionPostgreSQL:
             return session.exec(statement).one()
 
     def test_ingest_csv_populates_postgresql(self, catalog_csv):
-        """The supplied CSV can be ingested into PostgreSQL."""
         ingest_csv(catalog_csv)
 
         # 3 data rows, 2 unique stock_ids (2002 appears twice → PK upsert).
         assert self._count_vehicles((2001, 2002)) == 2
 
     def test_repeated_ingestion_does_not_duplicate(self, catalog_csv):
-        """Re-ingesting the same catalog must not create duplicates."""
         ingest_csv(catalog_csv)
         count_after_first = self._count_vehicles((2001, 2002))
 
@@ -464,7 +433,6 @@ class TestCSVIngestionPostgreSQL:
         assert count_after_first == count_after_second == 2
 
     def test_ingestion_skips_malformed_rows_and_reports_them(self, tmp_path, caplog):
-        """Malformed rows are reported with source-row information."""
         import logging
 
         csv_path = tmp_path / "malformed.csv"

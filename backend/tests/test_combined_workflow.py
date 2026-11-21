@@ -1,7 +1,3 @@
-"""
-Tests for the combined agent workflow: catalog search plus document search.
-"""
-
 import sys
 from pathlib import Path
 
@@ -47,7 +43,6 @@ def document_index():
 
 @pytest.mark.usefixtures("document_index")
 def test_find_vehicle_then_retrieve_company_evidence():
-    """Catalog finds a vehicle; document search returns company evidence."""
     _, vehicles = catalog_search_tool.func(make="toyota", max_results=2)
 
     assert vehicles
@@ -61,7 +56,6 @@ def test_find_vehicle_then_retrieve_company_evidence():
 
 @pytest.mark.usefixtures("document_index")
 def test_vehicle_price_feeds_financing_and_documents_backs_company_facts():
-    """A catalog result drives the financing calculator; document grounds claims."""
     _, vehicles = catalog_search_tool.func(make="honda", max_results=1)
 
     assert vehicles
@@ -81,7 +75,6 @@ def test_vehicle_price_feeds_financing_and_documents_backs_company_facts():
 
 
 def test_agent_toolbelt_exposes_catalog_and_documents():
-    """Both tools are registered with distinct names and valid schemas."""
     tools = {
         catalog_search_tool.name: catalog_search_tool,
         document_search_tool.name: document_search_tool,

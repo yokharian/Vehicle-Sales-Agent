@@ -1,14 +1,3 @@
-"""
-LangChain tool for grounded knowledge retrieval over the approved knowledge base.
-
-Approved `.md` and `.txt` documents are indexed explicitly into PostgreSQL +
-pgvector through the storage primitives in ``db.document_loader`` (chunking,
-embedding, storage), and retrieved here with a hybrid BM25 + dense ensemble.
-The tool returns evidence passages with source metadata; it never generates
-answers, and empty or failed retrieval is reported as such so the agent cannot
-fabricate business facts.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -38,12 +27,10 @@ MAX_K = 20
 
 
 class DocumentSearchError(RuntimeError):
-    """Raised when retrieval fails, without leaking connection details."""
+    pass
 
 
 class DocumentSearchInput(BaseModel):
-    """Input schema for knowledge base search."""
-
     query: str = Field(min_length=1, description="Natural-language question in Spanish or English")
     k: int = Field(
         default=6,
@@ -54,21 +41,16 @@ class DocumentSearchInput(BaseModel):
 
 
 class DocumentChunkMetadata(BaseModel):
-    """Provenance metadata for a retrieved passage."""
-
     source: str
     chunk_index: int
 
 
 class DocumentChunkResult(BaseModel):
-    """One retrieved evidence passage."""
-
     content: str
     metadata: DocumentChunkMetadata
 
 
 def resolve_embeddings():
-    """Build the configured embedding model for indexing and querying."""
     settings = DocumentSearchSettings()
     if not settings.embedding_api_key:
         raise ValueError("DOCUMENT_EMBEDDING_API_KEY is not set")
@@ -80,16 +62,10 @@ def resolve_embeddings():
 
 
 def _tokenize(text: str) -> list[str]:
-    """Lowercase word tokens; deterministic across platforms and runs."""
     return re.findall(r"\w+", text.lower())
 
 
 def build_bm25_retriever(chunks: list[Document], candidates: int) -> BM25Retriever:
-    """Lexical retriever over the indexed corpus.
-
-    BM25Plus is used instead of BM25Okapi because Okapi's IDF collapses to
-    zero on small corpora, which makes every document score identically.
-    """
     vectorizer = rank_bm25.BM25Plus([_tokenize(chunk.page_content) for chunk in chunks])
     return BM25Retriever(
         vectorizer=vectorizer,
@@ -100,8 +76,6 @@ def build_bm25_retriever(chunks: list[Document], candidates: int) -> BM25Retriev
 
 
 class DenseRetriever(BaseRetriever):
-    """Semantic retriever backed by pgvector cosine distance."""
-
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     embeddings: object
@@ -121,11 +95,6 @@ def build_hybrid_retriever(
     embeddings,
     settings: DocumentSearchSettings,
 ) -> EnsembleRetriever:
-    """Combine BM25 and dense retrieval with rank fusion.
-
-    Ensemble weights must be validated against the retrieval evaluation
-    dataset before being treated as final.
-    """
     bm25_retriever = build_bm25_retriever(chunks, settings.bm25_candidates)
     dense_retriever = DenseRetriever(embeddings=embeddings, candidates=settings.dense_candidates)
     return EnsembleRetriever(

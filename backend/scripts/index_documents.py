@@ -1,13 +1,4 @@
 #!/usr/bin/env python3
-"""Knowledge Base Indexing Script.
-
-Indexes approved .md/.txt documents into PostgreSQL + pgvector
-(Parse -> Chunk -> Embed -> per-source upsert). Re-run after any change to
-the knowledge base or the embedding model. Documents whose model-qualified
-chunk hashes match the stored ones are skipped unless --force is given; in
-directory mode, sources removed from the knowledge base are purged.
-"""
-
 import argparse
 import logging
 import sys

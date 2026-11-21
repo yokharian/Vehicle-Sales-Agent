@@ -1,5 +1,3 @@
-"""Session-scoped fixtures for the vehicle sales agent test suite."""
-
 import os
 import sys
 from pathlib import Path
@@ -49,14 +47,6 @@ from tools import document_search
 
 @pytest.fixture(autouse=True)
 def _hermetic_settings(monkeypatch):
-    """Ignore the developer's .env file for the duration of every test.
-
-    pydantic-settings resolves `env_file` relative to the CWD, so running the
-    suite from the repository root lets the local `.env` shadow every default
-    the settings tests assert. Pointing each settings class at no env file
-    keeps the suite hermetic: values still come from `monkeypatch.setenv`,
-    conftest's seeded env vars, or explicit constructor kwargs.
-    """
     for settings_cls in (
         AgentSettings,
         CognitoSettings,
@@ -73,7 +63,6 @@ def _hermetic_settings(monkeypatch):
 
 @pytest.fixture(scope="session", autouse=True)
 def _postgres_with_pgvector():
-    """Spin up a PostgreSQL container with pgvector for the whole test run."""
     container = PostgresContainer(
         image="pgvector/pgvector:pg16",
         driver="psycopg2",
@@ -106,7 +95,6 @@ def _postgres_with_pgvector():
 
 @pytest.fixture(scope="session", autouse=True)
 def _seed_catalog_db(_postgres_with_pgvector):
-    """Create the vehicle catalog tables and seed test data."""
     db_module.create_db_and_tables()
 
     vehicles = [
@@ -192,12 +180,6 @@ def _seed_catalog_db(_postgres_with_pgvector):
 
 @pytest.fixture(scope="session", autouse=True)
 def _fake_embeddings_for_document_search(_postgres_with_pgvector):
-    """Replace provider-resolved embeddings with deterministic fake embeddings.
-
-    This lets the knowledge-search pipeline exercise pgvector end-to-end
-    without calling the provider APIs. Tests that monkeypatch
-    document_search.resolve_embeddings themselves are unaffected.
-    """
     fake_embeddings = DeterministicFakeEmbedding(size=768)
     original_resolver = document_search.resolve_embeddings
     document_search.resolve_embeddings = lambda: fake_embeddings

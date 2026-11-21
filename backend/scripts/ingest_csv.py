@@ -1,10 +1,4 @@
 #!/usr/bin/env python3
-"""CSV Ingestion Script for Vehicle Data.
-
-Processes CSV files containing vehicle data and ingests them into the
-PostgreSQL catalog (Parse -> Normalize -> Validate -> Batch upsert).
-"""
-
 import argparse
 import logging
 import sys
@@ -37,7 +31,6 @@ FEATURE_COLUMNS = ["bluetooth", "car_play"]
 
 
 def parse_boolean(value: Any) -> bool:
-    """Parse Spanish/English truthy strings to bool."""
     if isinstance(value, bool):
         return value
     if value is None:
@@ -76,7 +69,6 @@ def _clean_text(value: Any, field: str, row_number: int, required: bool) -> str 
 
 
 def process_vehicle_row(row: pd.Series, row_number: int) -> dict[str, Any]:
-    """Normalize and validate one CSV row into Vehicle-ready data."""
     stock_id = _to_int(row.get("stock_id"), "stock_id", row_number)
     year = _to_int(row.get("year"), "year", row_number)
     km = _to_int(row.get("km"), "km", row_number)
@@ -112,7 +104,6 @@ def process_vehicle_row(row: pd.Series, row_number: int) -> dict[str, Any]:
 
 
 def ingest_csv(filepath: str, batch_size: int = 500) -> None:
-    """Ingest a CSV file into the PostgreSQL catalog. Idempotent via PK upsert."""
     filepath = Path(filepath)
 
     if not filepath.exists():
@@ -161,7 +152,6 @@ def ingest_csv(filepath: str, batch_size: int = 500) -> None:
 
 
 def main():
-    """Entrypoint for CLI usage."""
     parser = argparse.ArgumentParser(description="Ingest vehicle CSV data into database")
     parser.add_argument(
         "--file",

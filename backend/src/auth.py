@@ -1,25 +1,3 @@
-"""LangGraph custom authentication and authorization backed by Amazon Cognito.
-
-The middleware is optional and activated by environment: when both
-`COGNITO_REGION` and `COGNITO_USER_POOL_ID` are set, requests must carry a
-Cognito access token as `Authorization: Bearer <jwt>` — the signature is
-checked against the user pool's JWKS endpoint (RS256, fetched once and
-cached by `PyJWKClient`) along with the issuer
-(`https://cognito-idp.<region>.amazonaws.com/<user_pool_id>`), the expiry
-(30s leeway for clock skew), the `token_use` claim (`access`) and the
-`client_id` when `COGNITO_APP_CLIENT_IDS` (comma-separated) is configured — and resources
-(threads, runs) are scoped to the caller so conversations stay private per
-user. When the user pool is unset the server runs open: every request
-shares one anonymous identity and no AWS infrastructure is needed (the
-pgvector container is the only backend). The intended client is
-agent-chat-ui's Amplify auth, whose `authFetch` sends the Cognito access
-token as the bearer.
-
-Environment (see `config.py` / `.env.example`):
-  - COGNITO_REGION + COGNITO_USER_POOL_ID (optional; set both to enable JWT auth)
-  - COGNITO_APP_CLIENT_IDS (optional; comma-separated client_id allowlist)
-"""
-
 import asyncio
 import sys
 from pathlib import Path
@@ -47,12 +25,6 @@ _jwks_client: jwt.PyJWKClient | None = (
 
 
 def _decode_token(token: str) -> dict:
-    """Verify the token against the user pool's JWKS.
-
-    Synchronous on purpose: PyJWKClient fetches the JWKS over HTTP with
-    urllib, which would block the event loop (LangGraph dev aborts on it via
-    blockbuster) — callers run this in a worker thread.
-    """
     client = _jwks_client
     if client is None:
         raise HTTPException(401, "Auth is not configured (Cognito user pool is unset)")
@@ -75,7 +47,6 @@ def _decode_token(token: str) -> dict:
 
 @auth.authenticate
 async def get_current_user(authorization: str) -> Auth.types.MinimalUserDict:
-    """Validate the Bearer token, or return an anonymous user when auth is off."""
     if not cognito.enabled:
         return {"identity": ANONYMOUS_IDENTITY, "is_authenticated": True}
 
@@ -100,11 +71,6 @@ async def add_owner(
     ctx: Auth.types.AuthContext,
     value: dict,
 ) -> dict:
-    """Scope every resource to its creator.
-
-    On thread creation the owner is written into the thread's metadata; on
-    every other event the returned filter restricts access to that owner.
-    """
     if ctx.resource == "threads" and ctx.action == "create":
         metadata = value.setdefault("metadata", {})
         metadata["owner"] = ctx.user.identity

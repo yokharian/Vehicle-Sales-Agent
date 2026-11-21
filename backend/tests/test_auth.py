@@ -1,10 +1,3 @@
-"""Tests for the Cognito-backed LangGraph custom auth middleware.
-
-Tokens are signed with a throwaway RSA key whose public half is served by a
-stubbed JWKS client, so the full PyJWT verification path (signature, issuer,
-token_use, client_id, expiry) runs without network access.
-"""
-
 import asyncio
 import json
 from datetime import UTC, datetime, timedelta
@@ -29,7 +22,6 @@ _PUBLIC_JWK.update({"kid": "test-key", "use": "sig", "alg": "RS256"})
 
 @pytest.fixture(autouse=True)
 def _stub_jwks(monkeypatch):
-    """Serve the throwaway public key instead of hitting Cognito."""
     signing_key = SimpleNamespace(key=jwt.algorithms.RSAAlgorithm.from_jwk(json.dumps(_PUBLIC_JWK)))
     monkeypatch.setattr(auth._jwks_client, "get_signing_key_from_jwt", lambda *_: signing_key)
 

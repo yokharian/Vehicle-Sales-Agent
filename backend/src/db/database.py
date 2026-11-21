@@ -11,7 +11,7 @@ DB_SETTINGS = DatabaseSettings()
 
 
 class MissingDatabaseURIError(RuntimeError):
-    """Raised when no PostgreSQL connection is configured."""
+    pass
 
 
 if DB_SETTINGS.database_uri is None:
@@ -33,7 +33,6 @@ pgvector_engine: Engine = create_engine(
 
 
 def create_db_and_tables() -> None:
-    """Create database tables."""
     with engine.connect() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;"))
         conn.commit()
@@ -41,24 +40,19 @@ def create_db_and_tables() -> None:
 
 
 def get_session() -> Generator[Session, None, None]:
-    """Get database session."""
     with Session(engine) as session:
         yield session
 
 
 def get_session_sync() -> Session:
-    """Get synchronous database session."""
     return Session(engine)
 
 
 def get_pgvector_session_sync() -> Session:
-    """Get synchronous session bound to the vector-database engine."""
     return Session(pgvector_engine)
 
 
 class Vehicle(SQLModel, table=True, extend_existing=True):
-    """Vehicle model for storing car inventory data."""
-
     stock_id: int = Field(primary_key=True, description="Unique stock identifier")
     km: int = Field(description="Kilometers/mileage")
     price: float = Field(description="Vehicle price")

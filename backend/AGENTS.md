@@ -10,3 +10,5 @@ Everything below is relative to `backend/`. Deeper knowledge lives in `src/AGENT
 - ADR-006 is a Draft; ADR-001 to ADR-005 are Accepted and binding. Each tool has a PRD that defines its contract.
 - `../docs/diagrams/` holds the SVG/Excalidraw architecture sources; `ingestion_errors.log` is a runtime artifact.
 - The Docker build context is `backend/`, not the repo root.
+- Tool-layer failures raise one `*Error(RuntimeError)` per tool with generic text; connection strings and DSNs never reach error messages or logs.
+- `scripts/index_documents.py` skips unchanged files by model-qualified chunk hash (`--force` re-embeds); in directory mode it purges chunks of sources no longer on disk, so deleting a document also deletes its index rows.

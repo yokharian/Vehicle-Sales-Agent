@@ -1,7 +1,3 @@
-"""
-Tests for application configuration.
-"""
-
 import sys
 from pathlib import Path
 
@@ -21,8 +17,6 @@ from config import (
 
 
 class TestDocumentSearchSettings:
-    """Test document search settings loading and validation."""
-
     def test_poc_defaults(self, monkeypatch):
         for name in (
             "DOCUMENT_EMBEDDING_MODEL",
@@ -86,8 +80,6 @@ class TestDocumentSearchSettings:
 
 
 class TestDatabaseSettings:
-    """Bare Postgres schemes are normalized onto the installed psycopg2 driver."""
-
     def test_normalizes_postgres_scheme(self):
         settings = DatabaseSettings(**{"DATABASE_URI": "postgres://u:p@host:5432/db"})
 
@@ -149,8 +141,6 @@ class TestDatabaseSettings:
 
 
 class TestAgentSettings:
-    """Test agent chat model settings."""
-
     def test_prod_default_model(self, monkeypatch):
         monkeypatch.delenv("LLM_MODEL", raising=False)
 
@@ -185,8 +175,6 @@ class TestAgentSettings:
 
 
 class TestTwilioSettings:
-    """Test Twilio settings loading."""
-
     def test_reads_twilio_environment_variables(self, monkeypatch):
         monkeypatch.setenv("TWILIO_ACCOUNT_SID", "AC123")
         monkeypatch.setenv("TWILIO_AUTH_TOKEN", "token")
