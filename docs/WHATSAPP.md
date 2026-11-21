@@ -22,7 +22,7 @@ The assistant communicates over WhatsApp bidirectionally using Twilio:
 1. A **Twilio account** — https://www.twilio.com
 2. API keys for the agent providers (OpenAI or OpenRouter)
 3. PostgreSQL with pgvector, running and seeded (see the
-   [README](../README.md) Quick Start or [DOCKER.md](DOCKER.md))
+   [backend README](../backend/README.md) Quick Start or [DOCKER.md](DOCKER.md))
 
 ## Twilio Setup
 
@@ -33,7 +33,7 @@ The assistant communicates over WhatsApp bidirectionally using Twilio:
 
 ## Environment Variables
 
-Create a `.env` file in the backend directory (see [`.env.example`](../.env.example)):
+Create a `.env` file in the backend directory (see [`.env.example`](../backend/.env.example)):
 
 The Twilio variables are loaded by `TwilioSettings` (pydantic-settings) and
 the WhatsApp number must use the `whatsapp:+<number>` prefix format.

@@ -5,112 +5,59 @@ A vehicle sales assistant with two deployables in one repo:
 - `backend/` is the Python agent. It searches the vehicle catalog with typo-tolerant fuzzy matching, answers company questions from a knowledge base with hybrid BM25 + pgvector retrieval, and computes financing plans. It serves WhatsApp through a Twilio webhook and the LangGraph API that the web app talks to.
 - `web/` is the Next.js chat front end. It streams answers from the same LangGraph API and authenticates every HTTP and SSE request with a Cognito bearer token.
 
-## Layout
+There is no Python manifest or npm workspace at the repo root. Every command runs from the directory that owns it: setup and commands live in [backend/README.md](backend/README.md) and [web/README.md](web/README.md); setup guides in [docs/DOCKER.md](docs/DOCKER.md) and [docs/WHATSAPP.md](docs/WHATSAPP.md).
 
-| Path | What lives there | Stack | Docs |
-|---|---|---|---|
-| `backend/` | Agent, tools, WhatsApp server, tests, Docker image, Compose stacks | Python 3.12, LangGraph, FastAPI, SQLModel/PostgreSQL + pgvector, uv | [backend/README.md](backend/README.md) |
-| `backend/src/` | The application core, flat imports (`from config import ...`) | Python | [backend/src/AGENTS.md](backend/src/AGENTS.md) |
-| `backend/tests/` | pytest suite, real Postgres through testcontainers | pytest | [backend/tests/AGENTS.md](backend/tests/AGENTS.md) |
-| `backend/docs/` | ADRs, PRDs, Docker and WhatsApp setup | Markdown | [backend/docs/](backend/docs/) |
-| `web/` | Chat front end, statically exported | Next.js 16, React 19, assistant-ui, Tailwind v4, pnpm | |
-| `.github/workflows/` | CI for both stacks, container image and hosting pipelines | GitHub Actions | |
-| `AGENTS.md` | Repo level knowledge for agents | Markdown | [AGENTS.md](AGENTS.md) |
+## Architecture
 
-There is no Python manifest or npm workspace at the repo root. Every command runs from the directory that owns it: `backend/` for uv and Docker, `web/` for pnpm and Next.js.
+How the vehicle sales assistant is put together: the two deployables, the request paths, and the three agent tools. All backend commands referenced here run from `backend/`.
 
-## Prerequisites
+### System overview
 
-- Python 3.12 and [`uv`](https://docs.astral.sh/uv/)
-- Node.js 22 with Corepack. pnpm 10.5.1 is pinned in `web/package.json` under `packageManager`, so `corepack pnpm ...` works without installing pnpm globally.
-- Docker and Docker Compose, for the backend stack and for the test suite
-- An API key for an OpenAI-compatible chat and embeddings endpoint
-- Twilio credentials for the WhatsApp path
-- A PostgreSQL database with the `pgvector` extension for the catalog and the knowledge base
+![AI Sales Agent](docs/diagrams/AI%20Sales%20Agent.svg)
 
-## Backend quickstart
+- `web/` streams answers from the LangGraph API (`src/agent.py`), sending a Cognito access token as a bearer on every HTTP and SSE request.
+- WhatsApp messages reach the FastAPI webhook server (`src/whatsapp_server.py`) through Twilio and are answered by the same agent over `chat()`.
 
-```bash
-cd backend
-uv sync --locked
-cp .env.example .env      # then fill in the keys
-docker compose up -d db
-uv run --env-file .env scripts/ingest_csv.py data/sample_vehicles.csv --create-tables
-uv run --env-file .env scripts/index_documents.py
-```
+### Feature map
 
-Run the LangGraph API that the web app connects to:
+![Features High Level Diagram](docs/diagrams/Features%20High%20Level%20Diagram.svg)
 
-```bash
-cd backend
-uv run langgraph dev
-```
+Excalidraw sources sit next to the SVGs in `docs/diagrams/`.
 
-Run the WhatsApp webhook server instead:
+### Vehicle search flow
 
-```bash
-cd backend
-uv run --env-file .env src/whatsapp_server.py --host 0.0.0.0 --port 5000
-```
+1. A user query arrives (WhatsApp or web chat).
+2. The agent calls the `catalog_search` tool with the raw user input.
+3. Fuzzy matching normalizes make/model typos (PostgreSQL `fuzzystrmatch`); scoring runs in SQL, not Python.
+4. PostgreSQL filters by price, features, mileage, make and model.
+5. Results are ranked and formatted back to the user.
 
-Backend tests need a running Docker daemon, because the suite provisions real Postgres containers:
+### Document search flow
 
-```bash
-cd backend
-uv run pytest
-```
+1. Knowledge-base documents (`.md`/`.txt`) are chunked (500 chars, 100 overlap) at headings.
+2. Chunks are embedded and stored in PostgreSQL with `pgvector`.
+3. Hybrid retrieval — BM25Plus sparse + dense vector search — is fused by `EnsembleRetriever`.
+4. Relevant chunks ground the agent's response; empty retrieval is reported as empty, never filled from model knowledge (ADR-004).
 
-## Web quickstart
+### Financing flow
 
-```bash
-cd web
-corepack pnpm install
-corepack pnpm dev
-```
+- Monthly payments and amortization schedules are computed with `Decimal` arithmetic and `ROUND_HALF_UP`; the LLM never computes figures.
 
-Corepack downloads the pinned pnpm release on first use. If pnpm is already installed globally, plain `pnpm install` and `pnpm dev` are equivalent; the commands here use `corepack pnpm` so they also work on a machine without a global pnpm.
-
-The build needs these values, read from `web/.env.local` locally and from GitHub secrets in CI:
-
-| Variable | Meaning |
-|---|---|
-| `NEXT_PUBLIC_API_URL` | Base URL of the LangGraph API, for example `https://api.yokharian.dev/vsagent` |
-| `NEXT_PUBLIC_ASSISTANT_ID` | Graph id to talk to, `agent` |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare Turnstile site key for the guest flow |
-| `NEXT_PUBLIC_POSTHOG_KEY` | PostHog project API key (public client key); unset keeps analytics disabled |
-| `NEXT_PUBLIC_POSTHOG_HOST` | PostHog ingestion host, `https://us.i.posthog.com` |
-| `AMPLIFY_OUTPUTS_JSON` | Cognito config for the web app, written to `web/amplify_outputs.json` during the build |
-
-```bash
-cd web
-corepack pnpm build            # static export into web/out
-corepack pnpm lint
-corepack pnpm format:check
-```
+Binding decisions live in the [Architecture Decision Records](docs/Architecture%20Decision%20Records/) (ADR-001 through ADR-006) and the [Product Requirement Documents](docs/Product%20Requirement%20Documents/).
 
 ## CI and deploy
 
-- **`.github/workflows/ci.yml`** runs on pushes to `master` and on pull requests. A `changes` job uses `dorny/paths-filter@v3` to decide which stack changed; the backend job runs for `backend/**` and the web job for `web/**` (both also rerun when the workflow file changes).
-  - The backend job sets `working-directory: backend` and runs `uv sync --locked`, `uvx ruff@0.9.10 check .`, `uvx ruff@0.9.10 format --check .` and `uv run pytest -q`.
-  - The web job sets `working-directory: web`, installs Node 22 and pnpm 10.5.1 with `pnpm/action-setup`, caches the pnpm store, and runs `pnpm install --frozen-lockfile`, `pnpm format:check`, `pnpm lint` and `pnpm build`. The job supplies dummy public values so the build needs no secrets: `NEXT_PUBLIC_API_URL=https://example.invalid`, `NEXT_PUBLIC_ASSISTANT_ID=agent`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA` and `AMPLIFY_OUTPUTS_JSON='{"auth":{}}'`.
-- **`.github/workflows/deploy.yml`** builds the backend image from `backend/Dockerfile` with the `./backend` build context, pushes it to GitHub Container Registry on `master`, on `v*.*.*` tags and on manual dispatch, and signs the digest with cosign.
-- **`.github/workflows/web-deploy.yml`** builds the static export and publishes it to Amplify Hosting through the manual deployment API. It runs on pushes to `master` that touch `web/**` or the workflow file, and on manual dispatch; it never runs on pull requests. The job uses the `Preview` environment and the steps are: checkout, write `web/amplify_outputs.json` from `secrets.AMPLIFY_OUTPUTS_JSON`, `pnpm install`, `pnpm build`, zip `web/out`, upload the artifact, authenticate with `secrets.AWS_DEPLOY_ROLE_ARN`, then `amplify create-deployment`, upload, `start-deployment` and poll `get-job`. The Amplify app has no connected repository and auto-build disabled, so GitHub Actions is the only builder and publisher.
-- **Dependabot** tracks `uv` and `docker` under `/backend`, `npm` under `/web`, and the GitHub Actions used by these workflows. Minor and patch updates are grouped; Dependabot enables auto-merge for non-major pull requests.
+- **`ci.yml`** gates two independent jobs behind a paths filter: the backend job (`backend/**`) runs `uv sync --locked`, the ruff lint and format checks, and pytest; the web job (`web/**`) runs the pnpm format, lint and build checks with dummy public values.
+- **`deploy.yml`** builds the backend image from `backend/Dockerfile` with the `./backend` build context, pushes it to GitHub Container Registry and signs it with cosign.
+- **`web-deploy.yml`** publishes the static export to Amplify Hosting through the manual deployment API. It is the only web publisher and never runs on pull requests.
+- Dependabot groups minor and patch updates; non-major pull requests auto-merge after CI.
 
-## AWS provisioning precondition
-
-The web app talks to AWS hosted resources, and CI creates none of them. Provision them once before the first `web-deploy.yml` run; the workflow fails at the AWS steps until they exist.
-
-- **Amazon Cognito user pool** (us-east-1) with a registered app client and a guest app client. The registered client backs sign-in and sign-up, the guest client backs the "Continue as guest" flow. The backend validates access tokens against the pool JWKS once `COGNITO_REGION` and `COGNITO_USER_POOL_ID` are set, and runs open while they are unset.
-- **Amplify app** for hosting the static export, created with no connected repository, no auto branch creation and `enableAutoBuild: false` on its branch.
-- **GitHub secrets and variables**: secrets `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_ASSISTANT_ID`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST`, `AMPLIFY_OUTPUTS_JSON` and `AWS_DEPLOY_ROLE_ARN`; variables `AMPLIFY_APP_ID`, `AMPLIFY_BRANCH` and `AWS_REGION`. The deploy role must trust the GitHub Actions OIDC provider and be allowed to call the Amplify hosting deployment APIs on that app.
-
-The Postgres database needs the `pgvector` extension enabled before the document search works.
+CI provisions nothing. The Cognito user pool and app clients, the Amplify app, the OIDC deploy role and the GitHub secrets must exist first — see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Further reading
 
-- [Backend README](backend/README.md): features, configuration, API endpoints, project structure
-- [Docker setup](backend/docs/DOCKER.md)
-- [WhatsApp setup](backend/docs/WHATSAPP.md)
-- [Architecture Decision Records](backend/docs/Architecture%20Decision%20Records/)
-- [Product Requirement Documents](backend/docs/Product%20Requirement%20Documents/)
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — deployment pipelines and AWS provisioning
+- [docs/DOCKER.md](docs/DOCKER.md) and [docs/WHATSAPP.md](docs/WHATSAPP.md) — setup guides
+- [Architecture Decision Records](docs/Architecture%20Decision%20Records/) and [Product Requirement Documents](docs/Product%20Requirement%20Documents/) — binding decisions
+- [backend/README.md](backend/README.md) — features, commands, API endpoints, testing
+- [web/README.md](web/README.md) — front end commands

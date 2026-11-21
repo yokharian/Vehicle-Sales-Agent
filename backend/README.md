@@ -1,120 +1,43 @@
-# 🚗 Vehicle Sales Agent
+# Vehicle Sales Agent — Backend
 
-An AI-powered vehicle sales assistant that chats with customers over WhatsApp: it searches the vehicle catalog with fuzzy typo tolerance, answers company questions from a knowledge base with hybrid (BM25 + pgvector) retrieval, and calculates financing plans — built with LangGraph, PostgreSQL, and FastAPI, managed with `uv`.
+An AI-powered vehicle sales assistant that chats with customers over WhatsApp: it searches the vehicle catalog with fuzzy typo tolerance (PostgreSQL fuzzystrmatch), answers company questions from a knowledge base with hybrid BM25 + pgvector retrieval, and calculates financing plans with Decimal-precise math — built with LangGraph, PostgreSQL and FastAPI, managed with `uv`.
 
-## Diagram
+Architecture diagrams and request flows: [../README.md#architecture](../README.md#architecture).
 
-![AI Sales Agent.svg](docs/diagrams/AI%20Sales%20Agent.svg)
+## Features
 
-## ✨ Features
+- **AI agent**: LangGraph `create_agent` with structured tool calling
+- **WhatsApp integration**: bidirectional messaging via Twilio (TwiML webhooks)
+- **Vehicle catalog search**: fuzzy matching with typo tolerance over SQLModel/PostgreSQL
+- **Document search**: hybrid retrieval — BM25Plus sparse + pgvector dense, fused with `EnsembleRetriever`; grounded responses only
+- **Financing calculator**: Decimal-precise monthly payments and amortization schedules
+- **FastAPI server**: production-ready webhook handling with health checks
 
-- 🤖 **AI-Powered Agent**: LangGraph `create_agent` with structured tool calling
-- 📱 **WhatsApp Integration**: Bidirectional messaging via Twilio (TwiML webhooks)
-- 🔍 **Vehicle Catalog Search**: Fuzzy matching with typo tolerance (PostgreSQL fuzzystrmatch) over SQLModel/PostgreSQL
-- 📄 **Document Search**: Hybrid retrieval — BM25Plus sparse + pgvector dense, fused with `EnsembleRetriever`
-- 💰 **Financing Calculator**: Decimal-precise monthly payments and amortization schedules
-- 🌐 **FastAPI Server**: Production-ready webhook handling with health checks
+## Commands
 
-![Features High Level Diagram.svg](docs/diagrams/Features%20High%20Level%20Diagram.svg)
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Python 3.12+
-- [`uv`](https://docs.astral.sh/uv/) for dependency management
-- **Docker** and **Docker Compose** for the app stack — and required to run the test suite (testcontainers)
-- API keys: OpenAI or OpenRouter for chat/embeddings, Twilio for WhatsApp
-
-### Installation
-
-1. **Clone the repository and install dependencies:**
-   ```bash
-   git clone <repository-url>
-   cd vehicle-sales-agent/backend
-   uv sync --locked
-   ```
-
-   Every command in this README runs from `backend/`, the directory that holds `pyproject.toml`, `uv.lock` and the Docker image.
-
-2. **Set up environment variables:**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your credentials
-   ```
-
-3. **Start PostgreSQL with pgvector (or use Docker Compose, below):**
-   ```bash
-   docker compose up -d db
-   ```
-
-4. **Ingest the vehicle catalog and index the knowledge base:**
-   ```bash
-   uv run --env-file .env scripts/ingest_csv.py data/sample_vehicles.csv --create-tables
-   uv run --env-file .env scripts/index_documents.py
-   ```
-
-5. **Run the WhatsApp server:**
-   ```bash
-   uv run --env-file .env src/whatsapp_server.py --host 0.0.0.0 --port 5000
-   ```
-
-### Running the LangGraph API
-
-The web app in `web/` talks to the LangGraph API, which reads `langgraph.json` in this directory:
+All from this directory, which owns `pyproject.toml`, `uv.lock` and the Docker image. Configure the environment first: `cp .env.example .env`, then edit `.env` with your credentials (full reference in [`.env.example`](.env.example)).
 
 ```bash
-uv run langgraph dev
+uv sync --locked                                             # install deps (Python 3.12 from .python-version)
+docker compose up -d db                                      # PostgreSQL with pgvector for development
+uv run --env-file .env scripts/ingest_csv.py data/sample_vehicles.csv --create-tables
+uv run --env-file .env scripts/index_documents.py            # --file <path> for one doc, --force to rebuild
+uv run --env-file .env src/whatsapp_server.py --host 0.0.0.0 --port 5000
+uv run langgraph dev                                         # LangGraph API used by the web app in web/
+docker compose up --build                                    # app + pgvector; ingests on startup
+vercel deploy --prod                                         # builds backend/Dockerfile, serves it with Fluid Compute
+uv run pytest                                                # full suite — REQUIRES a running Docker daemon
+uvx ruff check . && uvx ruff format .                        # ruff is configured but NOT installed in .venv
 ```
 
-### Using Docker Compose
+The `docker compose up --build` container runs CSV ingestion on startup, then serves the WhatsApp server on port 5000. The LangGraph API reads `langgraph.json` in this directory.
 
-For a full deployment (app + database), see [docs/DOCKER.md](docs/DOCKER.md):
+## Usage
 
-```bash
-docker compose up --build
-```
+Configure the Twilio webhook URL — `http://your-server:5000/whatsapp/webhook`
+— as described in [../docs/WHATSAPP.md](../docs/WHATSAPP.md). Example queries:
 
-The container runs CSV ingestion on startup, then serves the WhatsApp server on port `5000`.
-
-### Deploying to Vercel (Fluid Compute)
-
-Vercel builds [`backend/Dockerfile`](Dockerfile) and serves it with Fluid Compute enabled. That image is
-the LangGraph API server: it exposes the agent graph (`src/agent.py:agent`) and the Cognito-authenticated API, with
-the catalog, document and financing tools reading PostgreSQL.
-
-`vercel.json` pins the Container framework preset and `fluid: true`:
-
-```json
-{
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "container",
-  "fluid": true
-}
-```
-
-The project must use the Container preset - Vercel keeps a detected framework otherwise, and `backend/Dockerfile`
-is only built when no other framework is selected. The project settings also need:
-
-| Setting | Value |
-|---|---|
-| Framework preset | Container |
-| Install command | empty (the image installs its own dependencies) |
-
-The public hostname is terminated by a Kong reverse proxy, so no domain has to be attached to the Vercel project: Kong
-upstreams to the production deployment URL (`https://<project>.vercel.app`). Kong is also the place to attach the Twilio
-webhook path, because this image serves the LangGraph API, not the WhatsApp server.
-
-Environment variables: `DATABASE_URI` resolves the database URL (with `PGVECTOR_URI`
-defaulting to it), so a single-database setup needs one URL. `LANGGRAPH_RUNTIME_EDITION=inmem` keeps the LangGraph run queue in memory and needs no
-runtime database, and `REDIS_URI=fake` satisfies the queue's configuration. `PORT` must match the port the image
-listens on (`8000`).
-
-## 💬 Usage
-
-The agent answers over WhatsApp. Example queries:
-
-```
+```text
 You: ¿Qué documentos necesito para comprar un auto?
 You: Quiero comprar un coche BMW
 You: ¿Hay devolución?
@@ -128,93 +51,35 @@ You: ¿Cómo funciona el plan de pago a meses?
 You: ¿En qué año se fundó kavak?
 ```
 
-Configure the Twilio webhook URL: `http://your-server:5000/whatsapp/webhook`
-
-## ⚙️ Configuration
-
-All configuration is loaded with `pydantic-settings` from `.env` (see [`.env.example`](.env.example) for the full reference)
-
-## 🔧 How It Works
-
-### Vehicle Search Flow
-1. User query received (WhatsApp)
-2. The agent calls the `catalog_search` tool with the raw user input
-3. Fuzzy matching normalizes make/model typos (PostgreSQL fuzzystrmatch)
-4. PostgreSQL query filters by price, features, mileage, make, and model
-5. Results ranked and formatted back to the user
-
-### Document Search Flow
-1. Knowledge-base documents (`.md`) are chunked (500 chars, 100 overlap) at headings
-2. Chunks embedded via OpenAI/OpenRouter and stored in PostgreSQL `pgvector`
-3. Hybrid retrieval: BM25Plus sparse + dense vector search, fused by `EnsembleRetriever`
-4. Relevant chunks ground the agent's response; no invented information
-
-### Financing Flow
-- Monthly payments and amortization schedules computed with `Decimal` arithmetic and `ROUND_HALF_UP`
-
-## 🧪 Testing
-
-```bash
-uv run pytest
-```
-
-**Docker is required to run the tests.** The suite provisions real PostgreSQL + pgvector containers via [testcontainers](https://testcontainers-python.readthedocs.io/) instead of mocking the database; embedding calls are replaced with deterministic fakes, so no API keys are needed. See [docs/DOCKER.md](docs/DOCKER.md) for details and troubleshooting.
-
-## 📊 API Endpoints
+## API endpoints
 
 When running the WhatsApp server:
 
-- `POST /whatsapp/webhook` - Handle incoming WhatsApp messages (Twilio)
-- `GET /whatsapp/webhook` - Webhook verification
-- `GET /health` - Health check endpoint
-- `POST /send-message` - Send a WhatsApp message programmatically
-- `GET /docs` - FastAPI auto-generated documentation (Swagger)
-- `GET /redoc` - ReDoc API documentation
+- `POST /whatsapp/webhook` — handle incoming WhatsApp messages (Twilio)
+- `GET /whatsapp/webhook` — webhook verification
+- `GET /health` — health check
+- `POST /send-message` — send a WhatsApp message programmatically
+- `GET /docs`, `GET /redoc` — auto-generated API documentation
 
-## 📁 Project Structure
+## Testing
 
-```
-backend/
-│
-├── src/
-│   ├── agent.py                     # LangGraph agent (catalog + document search tools)
-│   ├── config.py                    # pydantic-settings configuration
-│   ├── whatsapp_server.py           # FastAPI WhatsApp webhook server
-│   ├── db/                          # Database layer (engine, DAOs, document loader)
-│   └── tools/                       # LangChain tools
-│       ├── catalog_search.py        # Vehicle catalog search (fuzzy matching)
-│       ├── document_search.py       # Hybrid document search (BM25 + pgvector)
-│       └── financing_calculator.py  # Financing calculator
-│
-├── scripts/
-│   ├── ingest_csv.py                # CSV vehicle data ingestion
-│   ├── index_documents.py           # Knowledge-base indexing into pgvector
-│   └── html2text_cli.py             # HTML → markdown conversion utility
-│
-├── data/
-│   ├── documents/kavak.md           # Knowledge base (company information)
-│   └── sample_vehicles.csv          # Sample vehicle data
-│
-├── docs/                            # Documentation (see below)
-├── tests/                           # Test suite (testcontainers)
-├── pyproject.toml                   # Python project (owns uv.lock)
-├── Dockerfile                       # uv-based container image
-└── docker-compose.yml               # App + PostgreSQL/pgvector stack
-```
+`uv run pytest` requires a running Docker daemon: the suite provisions real
+PostgreSQL + pgvector containers via
+[testcontainers](https://testcontainers-python.readthedocs.io/) instead of
+mocking the database, and embedding calls are replaced with deterministic
+fakes, so no API keys are needed. Details and troubleshooting:
+[../docs/DOCKER.md](../docs/DOCKER.md).
 
-The repository root holds the other stack, the Next.js chat app in `web/`, plus the shared CI workflows and the root `README.md`.
+## Deployment
 
-## 📚 Documentation
+The image pipeline (GHCR + cosign) and the Vercel Fluid Compute deployment
+behind Kong are documented in [../docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md).
 
-- [Docker Setup Guide](docs/DOCKER.md) - Deployment and testing with Docker
-- [WhatsApp Setup Guide](docs/WHATSAPP.md) - Twilio account, webhook, and server configuration
-- [Product Requirement Documents](docs/Product%20Requirement%20Documents/) - `vehicle_catalog.md`, `knowledge_search.md`, `financing_calculator.md`
-- [Architecture Decision Records](docs/Architecture%20Decision%20Records/) - ADR-001 through ADR-006 (technology stack, structured tool calling, PostgreSQL datastore, grounded responses, evaluation, hybrid retrieval)
-- [Challenge description](docs/Challenge.en.md) / [Challenge description (Spanish)](docs/Challenge.es.md)
+## Documentation
 
-### External Resources
-- [LangChain Documentation](https://python.langchain.com/docs/introduction/)
-- [LangGraph Documentation](https://langchain-ai.github.io/langgraph/)
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [Twilio WhatsApp API](https://www.twilio.com/docs/whatsapp)
-- [pgvector](https://github.com/pgvector/pgvector)
+- [Docker setup](../docs/DOCKER.md) — deployment and testing with Docker
+- [WhatsApp setup](../docs/WHATSAPP.md) — Twilio account, webhook and server configuration
+- [Deployment](../docs/DEPLOYMENT.md) — image pipeline, Vercel Fluid Compute, Amplify
+- [Product Requirement Documents](../docs/Product%20Requirement%20Documents/) — `vehicle_catalog.md`, `knowledge_search.md`, `financing_calculator.md`
+- [Architecture Decision Records](../docs/Architecture%20Decision%20Records/) — ADR-001 through ADR-006
+- [Challenge description](../docs/Challenge.en.md) / [Challenge description (Spanish)](../docs/Challenge.es.md)
