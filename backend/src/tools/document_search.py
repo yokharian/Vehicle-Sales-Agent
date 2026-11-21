@@ -23,7 +23,7 @@ from langchain_core.tools import tool
 from langchain_openai import OpenAIEmbeddings
 from pydantic import BaseModel, ConfigDict, Field
 
-from config import OPENROUTER_BASE_URL, VERCEL_AI_GATEWAY_BASE_URL, DocumentSearchSettings
+from config import DocumentSearchSettings
 from db.document_loader import dense_search, load_chunks
 
 
@@ -70,26 +70,13 @@ class DocumentChunkResult(BaseModel):
 def resolve_embeddings():
     """Build the configured embedding model for indexing and querying."""
     settings = DocumentSearchSettings()
-    model = settings.resolved_embedding_model
-    if settings.embedding_provider == "openrouter":
-        if not settings.openrouter_api_key:
-            raise ValueError("OPENROUTER_API_KEY is not set")
-        return OpenAIEmbeddings(
-            model=model,
-            base_url=OPENROUTER_BASE_URL,
-            api_key=settings.openrouter_api_key,
-        )
-    if settings.embedding_provider == "vercel":
-        if not settings.vercel_api_key:
-            raise ValueError("AI_GATEWAY_API_KEY is not set")
-        return OpenAIEmbeddings(
-            model=model,
-            base_url=VERCEL_AI_GATEWAY_BASE_URL,
-            api_key=settings.vercel_api_key,
-        )
-    if not settings.openai_api_key:
-        raise ValueError("OPENAI_API_KEY is not set")
-    return OpenAIEmbeddings(model=model, api_key=settings.openai_api_key)
+    if not settings.embedding_api_key:
+        raise ValueError("DOCUMENT_EMBEDDING_API_KEY is not set")
+    return OpenAIEmbeddings(
+        model=settings.embedding_model,
+        api_key=settings.embedding_api_key,
+        base_url=settings.embedding_api_url,
+    )
 
 
 def _tokenize(text: str) -> list[str]:

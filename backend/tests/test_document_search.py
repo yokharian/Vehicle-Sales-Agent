@@ -174,51 +174,34 @@ class TestChunking:
         assert [chunk.metadata["source"] for chunk in chunks] == ["a.txt", "z.md"]
 
 
-class TestEmbeddingProviderConfig:
-    """Test provider selection through configuration."""
+class TestEmbeddingConfig:
+    """Test embedding resolution through configuration."""
 
-    def test_openai_embeddings_resolved(self, monkeypatch):
-        monkeypatch.delenv("DOCUMENT_EMBEDDING_PROVIDER", raising=False)
-        monkeypatch.setenv("OPENAI_API_KEY", "test-key-for-testing")
-
-        embeddings = resolve_embeddings()
-
-        assert type(embeddings).__name__ == "OpenAIEmbeddings"
-
-    def test_openrouter_embeddings_resolved(self, monkeypatch):
-        monkeypatch.setenv("DOCUMENT_EMBEDDING_PROVIDER", "openrouter")
+    def test_embeddings_resolved_against_default_endpoint(self, monkeypatch):
+        monkeypatch.setenv("DOCUMENT_EMBEDDING_API_KEY", "test-embedding-key")
+        monkeypatch.delenv("DOCUMENT_EMBEDDING_API_URL", raising=False)
         monkeypatch.delenv("DOCUMENT_EMBEDDING_MODEL", raising=False)
-        monkeypatch.setenv("OPENROUTER_API_KEY", "test-openrouter-key")
 
         embeddings = resolve_embeddings()
 
         assert type(embeddings).__name__ == "OpenAIEmbeddings"
-        assert embeddings.openai_api_base == "https://openrouter.ai/api/v1"
-        assert embeddings.model == "openai/text-embedding-3-small"
+        assert embeddings.model == "text-embedding-3-small"
 
-    def test_openrouter_requires_api_key(self, monkeypatch):
-        monkeypatch.setenv("DOCUMENT_EMBEDDING_PROVIDER", "openrouter")
-        monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
-
-        with pytest.raises(ValueError, match="OPENROUTER_API_KEY"):
-            resolve_embeddings()
-
-    def test_vercel_embeddings_resolved(self, monkeypatch):
-        monkeypatch.setenv("DOCUMENT_EMBEDDING_PROVIDER", "vercel")
-        monkeypatch.delenv("DOCUMENT_EMBEDDING_MODEL", raising=False)
-        monkeypatch.setenv("AI_GATEWAY_API_KEY", "test-gateway-key")
+    def test_embeddings_use_configured_base_url_and_model(self, monkeypatch):
+        monkeypatch.setenv("DOCUMENT_EMBEDDING_API_KEY", "test-embedding-key")
+        monkeypatch.setenv("DOCUMENT_EMBEDDING_API_URL", "https://gateway.example.com/v1")
+        monkeypatch.setenv("DOCUMENT_EMBEDDING_MODEL", "custom-embedding-model")
 
         embeddings = resolve_embeddings()
 
         assert type(embeddings).__name__ == "OpenAIEmbeddings"
-        assert embeddings.openai_api_base == "https://ai-gateway.vercel.sh/v1"
-        assert embeddings.model == "openai/text-embedding-3-small"
+        assert embeddings.openai_api_base == "https://gateway.example.com/v1"
+        assert embeddings.model == "custom-embedding-model"
 
-    def test_vercel_requires_api_key(self, monkeypatch):
-        monkeypatch.setenv("DOCUMENT_EMBEDDING_PROVIDER", "vercel")
-        monkeypatch.delenv("AI_GATEWAY_API_KEY", raising=False)
+    def test_embeddings_require_api_key(self, monkeypatch):
+        monkeypatch.delenv("DOCUMENT_EMBEDDING_API_KEY", raising=False)
 
-        with pytest.raises(ValueError, match="AI_GATEWAY_API_KEY"):
+        with pytest.raises(ValueError, match="DOCUMENT_EMBEDDING_API_KEY"):
             resolve_embeddings()
 
 

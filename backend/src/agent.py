@@ -17,7 +17,7 @@ from langfuse.langchain import CallbackHandler
 
 sys.path.append(str(Path(__file__).parent))
 
-from config import OPENROUTER_BASE_URL, VERCEL_AI_GATEWAY_BASE_URL, AgentSettings
+from config import AgentSettings
 from telemetry import init_sentry
 from tools.catalog_search import catalog_search_tool
 from tools.document_search import document_search_tool
@@ -48,46 +48,20 @@ SETTINGS = AgentSettings()
 langfuse_handler = CallbackHandler()
 
 
-def build_chat_model(model_name: str, session_id: str = "") -> ChatOpenAI:
-    """Build a chat model from the configured provider."""
-    common_kwargs = {"temperature": 0.1, "max_tokens": 2000}
-    if SETTINGS.model_provider == "openrouter":
-        if not SETTINGS.openrouter_api_key:
-            raise ValueError("OPENROUTER_API_KEY is not set")
-        return ChatOpenAI(
-            model=model_name,
-            api_key=SETTINGS.openrouter_api_key,
-            base_url=OPENROUTER_BASE_URL,
-            default_headers={
-                "HTTP-Referer": "https://vsa.demo.yokharian.dev",
-                "X-OpenRouter-Title": "Vehicle Sales Agent",
-                "X-OpenRouter-Categories": "general-chat",
-                "X-OpenRouter-App-Visibility": "hidden",
-            },
-            extra_body={"session_id": session_id},
-            **common_kwargs,
-        )
-    elif SETTINGS.model_provider == "openai":
-        if not SETTINGS.openai_api_key:
-            raise ValueError("OPENAI_API_KEY is not set")
-        return ChatOpenAI(model=model_name, api_key=SETTINGS.openai_api_key, **common_kwargs)
-    elif SETTINGS.model_provider == "vercel":
-        if not SETTINGS.vercel_api_key:
-            raise ValueError("AI_GATEWAY_API_KEY is not set")
-        return ChatOpenAI(
-            model=model_name,
-            api_key=SETTINGS.vercel_api_key,
-            base_url=VERCEL_AI_GATEWAY_BASE_URL,
-            **common_kwargs,
-        )
-    else:
-        raise ValueError(
-            f"Unsupported model provider: {SETTINGS.model_provider}. "
-            "Supported providers are 'openrouter', 'openai' and 'vercel'."
-        )
+def build_chat_model(model_name: str) -> ChatOpenAI:
+    """Build the chat model against the configured OpenAI-compatible endpoint."""
+    if not SETTINGS.api_key:
+        raise ValueError("LLM_API_KEY is not set")
+    return ChatOpenAI(
+        model=model_name,
+        api_key=SETTINGS.api_key,
+        base_url=SETTINGS.api_url,
+        temperature=0.1,
+        max_tokens=2000,
+    )
 
 
-standard_model = build_chat_model(SETTINGS.default_model)
+standard_model = build_chat_model(SETTINGS.model)
 
 tools = [catalog_search_tool, document_search_tool, financing_calculator_tool]
 

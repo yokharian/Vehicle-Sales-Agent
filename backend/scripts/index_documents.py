@@ -84,7 +84,7 @@ def main() -> int:
             )
             return 1
 
-        model_id = DocumentSearchSettings().resolved_embedding_model
+        model_id = DocumentSearchSettings().embedding_model
         embeddings = None
         indexed_chunks = 0
         skipped_files = 0

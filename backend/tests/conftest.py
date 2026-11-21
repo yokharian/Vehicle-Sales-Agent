@@ -18,9 +18,12 @@ os.environ.setdefault(
     "PGVECTOR_URI", "postgresql+psycopg2://invalid:invalid@localhost:59999/invalid"
 )
 
-# document_search resolves embedding providers lazily; tests still install a
+# document_search resolves its embedding endpoint lazily; tests still install a
 # deterministic fake before any tool call touches the network.
-os.environ.setdefault("OPENAI_API_KEY", "test-key-for-testing")
+os.environ.setdefault("DOCUMENT_EMBEDDING_API_KEY", "test-key-for-testing")
+
+# agent builds its chat model at import time; the key only needs to exist.
+os.environ.setdefault("LLM_API_KEY", "test-key-for-testing")
 
 # src.auth instantiates CognitoSettings at import time; seed a placeholder
 # user pool so tests/test_auth.py can import it without real credentials.
@@ -39,7 +42,6 @@ from config import (
     CognitoSettings,
     DatabaseSettings,
     DocumentSearchSettings,
-    SupabaseSettings,
     TwilioSettings,
 )
 from tools import document_search
@@ -60,7 +62,6 @@ def _hermetic_settings(monkeypatch):
         CognitoSettings,
         DatabaseSettings,
         DocumentSearchSettings,
-        SupabaseSettings,
         TwilioSettings,
     ):
         monkeypatch.setattr(

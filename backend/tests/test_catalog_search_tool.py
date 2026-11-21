@@ -11,7 +11,7 @@ from pydantic import ValidationError
 
 
 # Set test environment variables before any imports
-os.environ["OPENAI_API_KEY"] = "test-key-for-testing"
+os.environ["DOCUMENT_EMBEDDING_API_KEY"] = "test-key-for-testing"
 
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 

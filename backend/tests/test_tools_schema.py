@@ -10,8 +10,8 @@ import pytest
 from pydantic import ValidationError
 
 
-# OPENAI_API_KEY must exist before embedding provider configuration is exercised.
-os.environ["OPENAI_API_KEY"] = "test-key-for-testing"
+# DOCUMENT_EMBEDDING_API_KEY must exist before embedding configuration is exercised.
+os.environ["DOCUMENT_EMBEDDING_API_KEY"] = "test-key-for-testing"
 
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 

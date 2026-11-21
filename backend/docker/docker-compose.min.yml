@@ -18,16 +18,14 @@ services:
       - "DATABASE_URI="
       - "PGVECTOR_URI=postgresql://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable"
 
-      # Agent chat model
-      - MODEL_PROVIDER=${MODEL_PROVIDER:-openrouter}
-      - DEFAULT_MODEL=${DEFAULT_MODEL:-openai/gpt-oss-20b}
+      # Agent chat model (OpenAI-compatible endpoint)
+      - LLM_MODEL=${LLM_MODEL:-openai/gpt-oss-20b}
 
-      # Document search embeddings
-      - DOCUMENT_EMBEDDING_PROVIDER=${DOCUMENT_EMBEDDING_PROVIDER:-openrouter}
-      - DOCUMENT_EMBEDDING_MODEL=${DOCUMENT_EMBEDDING_MODEL:-openai/text-embedding-3-small}
+      # Document search embeddings (OpenAI-compatible endpoint)
+      - DOCUMENT_EMBEDDING_MODEL=${DOCUMENT_EMBEDDING_MODEL:-text-embedding-3-small}
 
-      # NOTE: API keys (OPENAI_API_KEY, OPENROUTER_API_KEY, AI_GATEWAY_API_KEY,
-      # DOCUMENT_*_API_KEY, TWILIO_*, LANGFUSE_*, LANGSMITH_API_KEY — needed
+      # NOTE: API keys (LLM_API_KEY, DOCUMENT_EMBEDDING_API_KEY,
+      # TWILIO_*, LANGFUSE_*, LANGSMITH_API_KEY — needed
       # by the langgraph-api license check —, COGNITO_*) are delivered
       # unshadowed by env_file ../.env — interpolating them here yields empty
       # strings that override the real values.

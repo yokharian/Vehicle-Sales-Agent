@@ -126,7 +126,7 @@ def _chunk_rows(
     chunks: list[Document], vectors: list, source: str | None = None
 ) -> list[DocumentChunk]:
     """ORM rows with model-qualified hashes; ``source`` overrides metadata."""
-    model_id = DocumentSearchSettings().resolved_embedding_model
+    model_id = DocumentSearchSettings().embedding_model
     return [
         DocumentChunk(
             source=chunk.metadata["source"] if source is None else source,
