@@ -91,7 +91,6 @@ class TestDatabaseOperations:
         test_session.add(vehicle)
         test_session.commit()
 
-        # Verify insertion
         retrieved = test_session.get(Vehicle, 1001)
         assert retrieved is not None
         assert retrieved.make == "toyota"
@@ -99,7 +98,6 @@ class TestDatabaseOperations:
 
     def test_vehicle_update(self, test_session):
         """Test updating a vehicle in database."""
-        # Insert initial vehicle
         vehicle = Vehicle(
             stock_id=1002,
             make="honda",
@@ -112,13 +110,11 @@ class TestDatabaseOperations:
         test_session.add(vehicle)
         test_session.commit()
 
-        # Update vehicle
         vehicle.price = 17000.00
         vehicle.features = {"bluetooth": True}
         vehicle.largo = 4.5
         test_session.commit()
 
-        # Verify update
         retrieved = test_session.get(Vehicle, 1002)
         assert retrieved.price == 17000.00
         assert retrieved.features["bluetooth"] == True
@@ -126,7 +122,6 @@ class TestDatabaseOperations:
 
     def test_vehicle_query(self, test_session):
         """Test querying vehicles from database."""
-        # Insert test vehicles
         vehicles = [
             Vehicle(
                 stock_id=1001,
@@ -158,21 +153,18 @@ class TestDatabaseOperations:
             test_session.add(vehicle)
         test_session.commit()
 
-        # Query by make
         from sqlmodel import select
 
         statement = select(Vehicle).where(Vehicle.make == "toyota")
         toyota_vehicles = list(test_session.exec(statement))
         assert len(toyota_vehicles) == 2
 
-        # Query by price range
         statement = select(Vehicle).where(Vehicle.price >= 18000)
         expensive_vehicles = list(test_session.exec(statement))
         assert len(expensive_vehicles) == 2
 
     def test_get_vehicle_by_id(self, test_session):
         """Test getting vehicle by ID."""
-        # Insert test vehicle
         vehicle = Vehicle(
             stock_id=1001,
             make="toyota",
@@ -185,7 +177,6 @@ class TestDatabaseOperations:
         test_session.add(vehicle)
         test_session.commit()
 
-        # Test successful retrieval
         from sqlmodel import select
 
         statement = select(Vehicle).where(Vehicle.stock_id == 1001)
@@ -196,7 +187,6 @@ class TestDatabaseOperations:
         assert retrieved.make == "toyota"
         assert retrieved.model == "corolla"
 
-        # Test non-existent ID
         statement = select(Vehicle).where(Vehicle.stock_id == 9999)
         not_found = test_session.exec(statement).first()
         assert not_found is None

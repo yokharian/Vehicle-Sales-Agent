@@ -130,13 +130,11 @@ class TestCatalogSearchTool:
         """Test VehiclePreferences validation."""
         from tools.catalog_search import VehiclePreferences
 
-        # Test valid preferences
         prefs = VehiclePreferences(make="Toyota", budget_max=50000, max_results=5)
         assert prefs.make == "Toyota"
         assert prefs.budget_max == 50000
         assert prefs.max_results == 5
 
-        # Test with None values
         prefs_none = VehiclePreferences()
         assert prefs_none.make is None
         assert prefs_none.budget_max is None
@@ -144,7 +142,6 @@ class TestCatalogSearchTool:
 
     def test_catalog_search_comprehensive_scenarios(self):
         """Test catalog search with comprehensive scenarios."""
-        # Test cases for catalog search
         test_cases = [
             {
                 "name": "Search by make and budget",
@@ -189,15 +186,12 @@ class TestCatalogSearchTool:
         ]
 
         for test_case in test_cases:
-            # Test that the function can be called without crashing
             try:
                 from tools.catalog_search import catalog_search_tool
 
                 content, artifact = catalog_search_tool.func(**test_case["preferences"])
                 assert isinstance(artifact, list)
-                # Should handle the query gracefully
             except Exception as e:
-                # Should handle errors gracefully
                 assert isinstance(
                     e,
                     (ValueError, TypeError, KeyError, AttributeError, ValidationError),
@@ -207,14 +201,12 @@ class TestCatalogSearchTool:
         """Test catalog search tool integration with LangChain."""
         from tools.catalog_search import catalog_search_tool
 
-        # Test tool attributes
         assert catalog_search_tool.name == "catalog_search"
         assert isinstance(catalog_search_tool.description, str)
         assert len(catalog_search_tool.description) > 0
         assert catalog_search_tool.args_schema is not None
         assert callable(catalog_search_tool.func)
 
-        # Test direct tool usage
         try:
             content, artifact = catalog_search_tool.func(
                 **{
@@ -225,14 +217,12 @@ class TestCatalogSearchTool:
             )
             assert isinstance(artifact, list)
         except Exception as e:
-            # Expected to fail in test environment, but should not crash
             assert isinstance(e, (ValueError, TypeError, KeyError, AttributeError, ValidationError))
 
     def test_catalog_search_performance_scenarios(self):
         """Test catalog search performance with different scenarios."""
         import time
 
-        # Test different search scenarios
         search_scenarios = [
             {
                 "name": "Simple make search",
@@ -270,12 +260,10 @@ class TestCatalogSearchTool:
                 content, artifact = catalog_search_tool.func(**scenario["preferences"])
                 end_time = time.time()
 
-                # Should complete within reasonable time (5 seconds)
                 assert end_time - start_time < 5.0
                 assert isinstance(artifact, list)
 
             except Exception as e:
-                # Should handle errors gracefully
                 assert isinstance(
                     e,
                     (ValueError, TypeError, KeyError, AttributeError, ValidationError),
@@ -283,7 +271,6 @@ class TestCatalogSearchTool:
 
     def test_catalog_search_edge_cases(self):
         """Test catalog search error handling and edge cases."""
-        # Test edge cases and error scenarios
         edge_cases = [
             {
                 "name": "Invalid budget range",
@@ -314,22 +301,18 @@ class TestCatalogSearchTool:
 
                 content, artifact = catalog_search_tool.func(**case["preferences"])
                 assert isinstance(artifact, list)
-                # Should handle edge cases gracefully
             except Exception as e:
-                # Should handle errors gracefully
                 assert isinstance(e, (ValueError, TypeError, KeyError, AttributeError))
 
     def test_langchain_tools_metadata(self):
         """Test LangChain tool metadata and configuration."""
         from tools.catalog_search import catalog_search_tool
 
-        # Test catalog search tool metadata
         assert catalog_search_tool.name == "catalog_search"
         assert isinstance(catalog_search_tool.description, str)
         assert len(catalog_search_tool.description) > 0
         assert catalog_search_tool.args_schema is not None
 
-        # Test that the tool has required LangChain tool interface
         for attribute in ("name", "description", "func", "args_schema"):
             assert hasattr(catalog_search_tool, attribute)
         assert callable(catalog_search_tool.func)

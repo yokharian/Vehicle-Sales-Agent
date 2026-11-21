@@ -209,18 +209,15 @@ class TestCSVIngestion:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             df.to_csv(f.name, index=False)
 
-            # Verify CSV was created correctly
             loaded_df = pd.read_csv(f.name)
             assert len(loaded_df) == 2
             assert loaded_df["stock_id"].iloc[0] == 1001
             assert loaded_df["make"].iloc[0] == "Toyota"
 
-            # Clean up
             Path(f.name).unlink()
 
     def test_csv_ingestion_workflow(self):
         """Test complete CSV ingestion workflow."""
-        # Create sample data that matches the real CSV structure
         sample_data = {
             "stock_id": [1001, 1002, 1003, 1004],
             "make": ["Toyota", "Honda", "Ford", "Chevrolet"],
@@ -239,11 +236,9 @@ class TestCSVIngestion:
         df = pd.DataFrame(sample_data)
         assert len(df) == 4
 
-        # Test processing each row
         for i, (_, row) in enumerate(df.iterrows(), 1):
             result = process_vehicle_row(row, row_number=i + 1)
 
-            # Verify basic structure
             assert isinstance(result, dict)
             assert "stock_id" in result
             assert "make" in result
@@ -399,7 +394,6 @@ class TestCSVIngestion:
         """Test CSV ingestion performance with larger datasets."""
         import time
 
-        # Create a larger dataset
         large_data = {
             "stock_id": list(range(1001, 1101)),  # 100 rows
             "make": ["Toyota", "Honda", "Ford", "Chevrolet"] * 25,
@@ -414,7 +408,6 @@ class TestCSVIngestion:
 
         start_time = time.time()
 
-        # Process all rows
         results = []
         for row_number, (_, row) in enumerate(df.iterrows(), start=2):
             result = process_vehicle_row(row, row_number=row_number)
@@ -422,11 +415,9 @@ class TestCSVIngestion:
 
         end_time = time.time()
 
-        # Should complete within reasonable time (2 seconds for 100 rows)
         assert end_time - start_time < 2.0
         assert len(results) == 100
 
-        # Verify all results have correct structure
         for result in results:
             assert isinstance(result, dict)
             assert "stock_id" in result

@@ -258,7 +258,4 @@ def search_vehicles(
     if km_max:
         statement = statement.where(Vehicle.km <= km_max)
 
-    # Note: Feature filtering would require more complex JSON queries
-    # This is a simplified version
-
     return list(db.exec(statement))

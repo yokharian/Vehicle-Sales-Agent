@@ -11,8 +11,6 @@ from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-# Pooler-only query parameters. libpq rejects unknown connection parameters,
-# so they are dropped before the URL reaches SQLAlchemy.
 _POOLER_ONLY_QUERY_PARAMS = frozenset({"pgbouncer", "supa"})
 
 

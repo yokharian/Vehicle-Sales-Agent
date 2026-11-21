@@ -169,7 +169,6 @@ class TestToolSchemasConsistency:
 
     def test_all_tools_compatible_with_langchain(self):
         """Test that all tools are compatible with LangChain."""
-        # All tools should have the required LangChain tool interface
         for tool in [
             catalog_search_tool,
             document_search_tool,
@@ -180,18 +179,14 @@ class TestToolSchemasConsistency:
             assert hasattr(tool, "func")
             assert hasattr(tool, "args_schema")
 
-            # Name should be a string
             assert isinstance(tool.name, str)
             assert len(tool.name) > 0
 
-            # Description should be a string
             assert isinstance(tool.description, str)
             assert len(tool.description) > 0
 
-            # Function should be callable
             assert callable(tool.func)
 
-            # Args schema should be a Pydantic model
             assert hasattr(tool.args_schema, "model_fields")
 
     def test_all_schemas_have_typed_fields(self):
@@ -203,12 +198,10 @@ class TestToolSchemasConsistency:
         ]:
             schema = tool.args_schema
 
-            # Schema should have fields
             fields = schema.model_fields
 
             assert len(fields) > 0
 
-            # Each field should have a type annotation
             for field_name, field_info in fields.items():
                 assert field_name is not None
                 assert field_info is not None

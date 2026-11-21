@@ -17,15 +17,12 @@ DOCUMENTS_FOLDER = DATA_FOLDER.joinpath("documents").resolve(strict=True)
 
 
 def html_to_text(url: str) -> str:
-    # 1) Load HTML from the web
     loader = AsyncHtmlLoader(url, header_template=None, verify_ssl=True)
     docs = loader.load()
 
-    # 2) Transform HTML → Markdown text using MarkdownifyTransformer
     md = MarkdownifyTransformer()
     converted_docs = md.transform_documents(docs)
 
-    # 3) Join the content (in case the loader returns multiple documents)
     raw_text = "\n\n".join(d.page_content for d in converted_docs)
     return raw_text
 
