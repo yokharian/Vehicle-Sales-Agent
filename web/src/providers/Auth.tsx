@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { fetchAuthSession, getCurrentUser, signOut } from "aws-amplify/auth";
 import { Hub } from "aws-amplify/utils";
+import { useRouter } from "next/navigation";
 import {
   configureRegisteredAuth,
   guestAuthConfigAvailable,
@@ -53,6 +54,7 @@ const GUEST_USER: CognitoUser = {
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [session, setSession] = useState<AuthSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
@@ -206,8 +208,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(null);
       setIsGuest(false);
       setGuestExpired(false);
+      router.replace("/", { scroll: false });
     }
-  }, [isGuest]);
+  }, [isGuest, router]);
 
   return (
     <AuthContext.Provider
