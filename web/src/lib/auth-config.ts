@@ -59,3 +59,7 @@ function applyIdentityPool(identityPoolId: string | undefined): void {
 export function configureRegisteredAuth(): void {
   applyIdentityPool(getAppAuthConfig()?.identityPoolId);
 }
+
+export function configureGuestAuth(): void {
+  applyIdentityPool(getAppAuthConfig()?.guestIdentityPoolId);
+}

@@ -1,5 +1,5 @@
 import { generateClient } from "aws-amplify/data";
-import { getAppAuthConfig } from "./auth-config";
+import { configureGuestAuth, getAppAuthConfig } from "./auth-config";
 
 const STORAGE_KEY = "vsa.guest.tokens";
 const EXPIRY_SKEW_MS = 60_000;
@@ -147,7 +147,8 @@ export async function createGuestSession(
   turnstileToken: string,
   email?: string,
 ): Promise<GuestTokens> {
-  const client = generateClient({ authMode: "apiKey" });
+  configureGuestAuth();
+  const client = generateClient({ authMode: "iam" });
   const queries = client.queries as unknown as {
     createGuest: (args: {
       turnstileToken: string;
