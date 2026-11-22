@@ -123,8 +123,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (mounted) {
         if (accessToken && isGuestAccessToken(accessToken)) {
           adoptGuestTokens(accessToken, guestTokens.idToken);
-        } else {
+        } else if (accessToken) {
           clearGuestTokens();
+          setSession(null);
+          setIsGuest(false);
+          setGuestExpired(true);
+        } else if (readGuestTokens()) {
+          adoptGuestTokens(guestTokens.accessToken, guestTokens.idToken);
+        } else {
           setSession(null);
           setIsGuest(false);
           setGuestExpired(true);

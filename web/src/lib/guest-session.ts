@@ -194,8 +194,10 @@ async function refreshGuestTokens(
     );
 
     if (!response.ok) {
-      clearGuestTokens();
-      notifyGuestSessionLost();
+      if (response.status >= 400 && response.status < 500) {
+        clearGuestTokens();
+        notifyGuestSessionLost();
+      }
       return null;
     }
 
@@ -231,6 +233,5 @@ export async function currentGuestAccessToken(): Promise<string | null> {
 
   const renewed = await refreshGuestTokens(tokens);
   if (renewed) return renewed.accessToken;
-  notifyGuestSessionLost();
   return null;
 }
