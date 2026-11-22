@@ -7,10 +7,28 @@ import { useTurnstileToken } from "@/components/turnstile-widget";
 import { createGuestSession } from "@/lib/guest-session";
 
 export default function GuestTestPage() {
-  const { element, token, reset } = useTurnstileToken("guest_test");
+  const production = process.env.NODE_ENV === "production";
+  const { element, token, reset } = useTurnstileToken(
+    "guest_test",
+    { enabled: !production },
+  );
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  if (production) {
+    return (
+      <main className="mx-auto flex max-w-xl flex-col gap-4 p-8">
+        <h1 className="text-xl font-semibold">Guest session MVP</h1>
+        <p className="text-muted-foreground text-sm">
+          This development harness is not available in production.
+        </p>
+        <Link className="text-sm underline" href="/">
+          Back to chat
+        </Link>
+      </main>
+    );
+  }
 
   const run = async () => {
     if (!token) return;
