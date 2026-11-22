@@ -123,173 +123,55 @@ class TestCatalogSearchTool:
         assert prefs_none.max_results == 5  # Default value
 
     def test_catalog_search_comprehensive_scenarios(self):
-        test_cases = [
-            {
-                "name": "Search by make and budget",
-                "preferences": {
-                    "make": "toyota",
-                    "budget_max": 20000,
-                    "max_results": 3,
-                },
-            },
-            {
-                "name": "Search with typos (fuzzy matching)",
-                "preferences": {
-                    "make": "hond",  # Typo for "honda"
-                    "model": "civic",
-                    "max_results": 2,
-                },
-            },
-            {
-                "name": "Search by features",
-                "preferences": {
-                    "features": ["bluetooth", "air_conditioning"],
-                    "max_results": 2,
-                },
-            },
-            {
-                "name": "Complex search with multiple filters",
-                "preferences": {
-                    "make": "Toyta",  # Typo to test fuzzy matching
-                    "budget_max": 50000,
-                    "km_max": 50000,
-                    "max_results": 3,
-                },
-            },
-            {
-                "name": "Price range search",
-                "preferences": {
-                    "budget_min": 200000,
-                    "budget_max": 400000,
-                    "max_results": 5,
-                },
-            },
-        ]
+        from tools.catalog_search import catalog_search_tool
 
-        for test_case in test_cases:
-            try:
-                from tools.catalog_search import catalog_search_tool
+        _, artifact = catalog_search_tool.func(
+            make="toyota", budget_max=20000, max_results=3
+        )
+        assert [vehicle.stock_id for vehicle in artifact] == [1001]
 
-                content, artifact = catalog_search_tool.func(**test_case["preferences"])
-                assert isinstance(artifact, list)
-            except Exception as e:
-                assert isinstance(
-                    e,
-                    (ValueError, TypeError, KeyError, AttributeError, ValidationError),
-                )
+        _, artifact = catalog_search_tool.func(
+            make="hond", model="civic", max_results=2
+        )
+        assert [vehicle.stock_id for vehicle in artifact] == [1002]
+
+        _, artifact = catalog_search_tool.func(
+            features=["bluetooth", "air_conditioning"], max_results=2
+        )
+        assert sorted(vehicle.stock_id for vehicle in artifact) == [1001, 1002]
+
+        _, artifact = catalog_search_tool.func(
+            make="Toyta", budget_max=50000, km_max=50000, max_results=3
+        )
+        assert sorted(vehicle.stock_id for vehicle in artifact) == [1001, 1003]
+
+        _, artifact = catalog_search_tool.func(
+            budget_min=200000, budget_max=400000, max_results=5
+        )
+        assert artifact == []
 
     def test_catalog_search_tool_integration(self):
         from tools.catalog_search import catalog_search_tool
 
-        assert catalog_search_tool.name == "catalog_search"
-        assert isinstance(catalog_search_tool.description, str)
-        assert len(catalog_search_tool.description) > 0
-        assert catalog_search_tool.args_schema is not None
-        assert callable(catalog_search_tool.func)
+        content, artifact = catalog_search_tool.func(
+            make="Toyta",
+            budget_max=50000,
+            max_results=3,
+        )
 
-        try:
-            content, artifact = catalog_search_tool.func(
-                **{
-                    "make": "Toyta",  # Typo to test fuzzy matching
-                    "budget_max": 50000,
-                    "max_results": 3,
-                }
-            )
-            assert isinstance(artifact, list)
-        except Exception as e:
-            assert isinstance(e, (ValueError, TypeError, KeyError, AttributeError, ValidationError))
-
-    def test_catalog_search_performance_scenarios(self):
-        import time
-
-        search_scenarios = [
-            {
-                "name": "Simple make search",
-                "preferences": {"make": "Toyota", "max_results": 5},
-            },
-            {
-                "name": "Make with typo",
-                "preferences": {"make": "Toyta", "max_results": 5},
-            },
-            {
-                "name": "Price range search",
-                "preferences": {
-                    "budget_min": 200000,
-                    "budget_max": 400000,
-                    "max_results": 10,
-                },
-            },
-            {
-                "name": "Complex search",
-                "preferences": {
-                    "make": "Hnda",  # Typo
-                    "budget_max": 300000,
-                    "km_max": 50000,
-                    "max_results": 5,
-                },
-            },
-        ]
-
-        for scenario in search_scenarios:
-            start_time = time.time()
-
-            try:
-                from tools.catalog_search import catalog_search_tool
-
-                content, artifact = catalog_search_tool.func(**scenario["preferences"])
-                end_time = time.time()
-
-                assert end_time - start_time < 5.0
-                assert isinstance(artifact, list)
-
-            except Exception as e:
-                assert isinstance(
-                    e,
-                    (ValueError, TypeError, KeyError, AttributeError, ValidationError),
-                )
+        assert isinstance(artifact, list)
+        assert artifact
+        assert all(vehicle.make == "toyota" for vehicle in artifact)
+        assert "stock_id" in content
 
     def test_catalog_search_edge_cases(self):
-        edge_cases = [
-            {
-                "name": "Invalid budget range",
-                "preferences": {
-                    "budget_min": 50000,
-                    "budget_max": 20000,
-                    "max_results": 3,
-                },
-            },
-            {
-                "name": "Zero max results",
-                "preferences": {"make": "Toyota", "max_results": 0},
-            },
-            {
-                "name": "Very high max results",
-                "preferences": {"make": "Toyota", "max_results": 1000},
-            },
-            {"name": "Empty make", "preferences": {"make": "", "max_results": 3}},
-            {
-                "name": "Special characters in make",
-                "preferences": {"make": "Toy@ta", "max_results": 3},
-            },
-        ]
-
-        for case in edge_cases:
-            try:
-                from tools.catalog_search import catalog_search_tool
-
-                content, artifact = catalog_search_tool.func(**case["preferences"])
-                assert isinstance(artifact, list)
-            except Exception as e:
-                assert isinstance(e, (ValueError, TypeError, KeyError, AttributeError))
-
-    def test_langchain_tools_metadata(self):
         from tools.catalog_search import catalog_search_tool
 
-        assert catalog_search_tool.name == "catalog_search"
-        assert isinstance(catalog_search_tool.description, str)
-        assert len(catalog_search_tool.description) > 0
-        assert catalog_search_tool.args_schema is not None
+        with pytest.raises(ValueError, match="budget_min"):
+            catalog_search_tool.func(budget_min=50000, budget_max=20000, max_results=3)
 
-        for attribute in ("name", "description", "func", "args_schema"):
-            assert hasattr(catalog_search_tool, attribute)
-        assert callable(catalog_search_tool.func)
+        _, artifact = catalog_search_tool.func(make="Toy@ta", max_results=3)
+
+        assert artifact
+        assert all(vehicle.make == "toyota" for vehicle in artifact)
+

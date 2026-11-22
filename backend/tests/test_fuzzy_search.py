@@ -18,41 +18,6 @@ from tools.catalog_search import (
 
 
 class TestFuzzySearch:
-    @patch("tools.catalog_search.fuzzy_match_make")
-    def test_fuzzy_search_make_exact_match(self, mock_fuzzy_match_make):
-        mock_fuzzy_match_make.return_value = "Toyota"
-
-        result = fuzzy_search_make("Toyota")
-        assert result == "Toyota"
-
-    @patch("tools.catalog_search.fuzzy_match_make")
-    def test_fuzzy_search_make_fuzzy_match(self, mock_fuzzy_match_make):
-        mock_fuzzy_match_make.return_value = "Toyota"
-
-        result = fuzzy_search_make("Toyta")  # Typo in Toyota
-        assert result == "Toyota"
-
-    @patch("tools.catalog_search.fuzzy_match_make")
-    def test_fuzzy_search_make_no_match(self, mock_fuzzy_match_make):
-        mock_fuzzy_match_make.return_value = None
-
-        result = fuzzy_search_make("Xyz")  # No match
-        assert result is None
-
-    @patch("tools.catalog_search.fuzzy_match_model")
-    def test_fuzzy_search_model_with_make(self, mock_fuzzy_match_model):
-        mock_fuzzy_match_model.return_value = "Camry"
-
-        result = fuzzy_search_model("Camry", make="Toyota")
-        assert result == "Camry"
-
-    @patch("tools.catalog_search.fuzzy_match_model")
-    def test_fuzzy_search_model_fuzzy_match(self, mock_fuzzy_match_model):
-        mock_fuzzy_match_model.return_value = "Camry"
-
-        result = fuzzy_search_model("Camri", make="Toyota")  # Typo in Camry
-        assert result == "Camry"
-
     @patch("tools.catalog_search.search_vehicles")
     @patch("tools.catalog_search.fuzzy_match_make")
     def test_catalog_search_with_fuzzy_make(self, mock_fuzzy_match_make, mock_search_vehicles):
@@ -102,71 +67,30 @@ class TestFuzzySearch:
         assert "secret" not in str(excinfo.value)
 
     def test_fuzzy_search_comprehensive_scenarios(self):
-        test_cases = [
-            {
-                "name": "Toyota with typo",
-                "preferences": {
-                    "make": "Toyta",
-                    "budget_max": 500000,
-                    "max_results": 3,
-                },
-                "expected_results": True,  # Should find results
-            },
-            {
-                "name": "Honda with typo",
-                "preferences": {"make": "Hnda", "budget_max": 500000, "max_results": 3},
-                "expected_results": True,  # Should find results
-            },
-            {
-                "name": "Model with typo",
-                "preferences": {
-                    "make": "Toyota",
-                    "model": "Camri",
-                    "budget_max": 500000,
-                    "max_results": 3,
-                },
-                "expected_results": True,  # Should find results
-            },
-            {
-                "name": "Both make and model with typos",
-                "preferences": {
-                    "make": "Toyta",
-                    "model": "Camri",
-                    "budget_max": 500000,
-                    "max_results": 3,
-                },
-                "expected_results": True,  # Should find results
-            },
-            {
-                "name": "No match (should return empty)",
-                "preferences": {
-                    "make": "XyzBrand",  # No match
-                    "budget_max": 500000,
-                    "max_results": 3,
-                },
-                "expected_results": False,  # Should return empty
-            },
+        resolution_scenarios = [
+            ({"make": "Toyta", "budget_max": 500000, "max_results": 3}, "toyota"),
+            ({"make": "Hnda", "budget_max": 500000, "max_results": 3}, "honda"),
+            (
+                {"make": "Toyota", "model": "Camri", "budget_max": 500000, "max_results": 3},
+                "toyota",
+            ),
+            (
+                {"make": "Toyta", "model": "Camri", "budget_max": 500000, "max_results": 3},
+                "toyota",
+            ),
         ]
 
-        for test_case in test_cases:
-            try:
-                results = catalog_search_tool.func(**test_case["preferences"])
+        for preferences, expected_make in resolution_scenarios:
+            _, artifact = catalog_search_tool.func(**preferences)
 
-                if test_case["expected_results"]:
-                    if len(results) > 0:
-                        for result in results:
-                            assert hasattr(result, "make")
-                            assert hasattr(result, "model")
-                            assert hasattr(result, "price")
-                            assert hasattr(result, "year")
-                else:
-                    assert len(results) == 0, (
-                        f"Expected no results for {test_case['name']} but got {len(results)}"
-                    )
+            assert artifact, f"Expected results for {preferences}"
+            assert all(vehicle.make == expected_make for vehicle in artifact)
 
-            except Exception:
-                if test_case["expected_results"]:
-                    pass  # Accept the error for expected results cases
+        _, artifact = catalog_search_tool.func(
+            make="XyzBrand", budget_max=500000, max_results=3
+        )
+
+        assert artifact == []
 
     def test_dao_integration_functionality(self):
         from db.vehicle_dao import get_makes, get_models, get_models_by_make
@@ -196,118 +120,38 @@ class TestFuzzySearch:
     def test_langchain_tool_integration(self):
         from tools.catalog_search import catalog_search_tool
 
-        assert hasattr(catalog_search_tool, "name"), "Tool should have a name"
-        assert hasattr(catalog_search_tool, "description"), "Tool should have a description"
-        assert hasattr(catalog_search_tool, "func"), "Tool should have a function"
-        assert hasattr(catalog_search_tool, "args_schema"), "Tool should have an args schema"
+        assert catalog_search_tool.name == "catalog_search"
+        assert isinstance(catalog_search_tool.description, str)
+        assert len(catalog_search_tool.description) > 0
+        assert catalog_search_tool.args_schema is not None
+        assert callable(catalog_search_tool.func)
 
-        assert catalog_search_tool.name == "catalog_search", "Tool name should be 'catalog_search'"
+        content, artifact = catalog_search_tool.func(
+            make="Toyta",
+            budget_max=50000,
+            max_results=3,
+        )
 
-        assert isinstance(catalog_search_tool.description, str), "Description should be a string"
-        assert len(catalog_search_tool.description) > 0, "Description should not be empty"
-
-        try:
-            content, artifact = catalog_search_tool.func(
-                **{
-                    "make": "Toyta",  # Typo to test fuzzy matching
-                    "budget_max": 50000,
-                    "max_results": 3,
-                }
-            )
-            assert isinstance(artifact, list), "Tool function should return a list"
-            for vehicle in artifact:
-                assert hasattr(vehicle, "make"), "Vehicle should have make attribute"
-                assert hasattr(vehicle, "model"), "Vehicle should have model attribute"
-                assert hasattr(vehicle, "price"), "Vehicle should have price attribute"
-        except Exception as e:
-            assert "Error" in str(e) or "Exception" in str(e), f"Unexpected error type: {e}"
+        assert isinstance(artifact, list)
+        assert artifact
+        assert all(vehicle.make == "toyota" for vehicle in artifact)
+        assert "stock_id" in content
 
     def test_fuzzy_matching_accuracy(self):
         from tools.catalog_search import fuzzy_search_make
 
-        # Catalog values are stored normalized (lowercase) by the ingestion.
-        typo_tests = [
-            ("toyota", ["Toyta", "Toyta", "Toyta", "Toyta", "Toyta"]),
-            ("honda", ["Hnda", "Hnda", "Hnda", "Hnda", "Hnda"]),
-            ("bmw", ["BM", "bmw", "bmw", "bmw", "bmw"]),
-            ("mercedes benz", ["Mercdes", "Mercdes", "Mercdes", "Mercdes", "Mercdes"]),
-            ("volkswagen", ["VW", "VW", "VW", "VW", "VW"]),
-        ]
+        resolution = {
+            "Toyta": "toyota",
+            "Hnda": "honda",
+            "BM": "bmw",
+        }
 
-        for correct_make, typos in typo_tests:
-            for typo in typos:
-                try:
-                    result = fuzzy_search_make(typo)
-                    if typo == correct_make:
-                        assert result == correct_make, (
-                            f"Exact match failed: '{typo}' should return '{correct_make}' but got '{result}'"
-                        )
-                    elif result is not None:
-                        assert result == correct_make, (
-                            f"Fuzzy match failed: '{typo}' should return '{correct_make}' but got '{result}'"
-                        )
-                except Exception as e:
-                    assert "Error" in str(e) or "Exception" in str(e), f"Unexpected error type: {e}"
+        for typo, expected in resolution.items():
+            assert fuzzy_search_make(typo) == expected
 
-    def test_search_performance_scenarios(self):
-        import time
+        assert fuzzy_search_make("Mercdes") is None
+        assert fuzzy_search_make("VW") is None
 
-        search_scenarios = [
-            {
-                "name": "Simple make search",
-                "preferences": {"make": "Toyota", "max_results": 5},
-            },
-            {
-                "name": "Make with typo",
-                "preferences": {"make": "Toyta", "max_results": 5},
-            },
-            {
-                "name": "Price range search",
-                "preferences": {
-                    "budget_min": 200000,
-                    "budget_max": 400000,
-                    "max_results": 10,
-                },
-            },
-            {
-                "name": "Complex search",
-                "preferences": {
-                    "make": "Hnda",  # Typo
-                    "budget_max": 300000,
-                    "km_max": 50000,
-                    "max_results": 5,
-                },
-            },
-        ]
-
-        for scenario in search_scenarios:
-            start_time = time.time()
-
-            try:
-                content, artifact = catalog_search_tool.func(**scenario["preferences"])
-                end_time = time.time()
-
-                assert isinstance(artifact, list), (
-                    f"Results should be a list for {scenario['name']}"
-                )
-
-                execution_time = end_time - start_time
-                assert execution_time < 5.0, (
-                    f"Search took too long ({execution_time:.3f}s) for {scenario['name']}"
-                )
-
-                for result in artifact:
-                    assert hasattr(result, "make"), "Result should have make attribute"
-                    assert hasattr(result, "model"), "Result should have model attribute"
-                    assert hasattr(result, "price"), "Result should have price attribute"
-
-            except Exception as e:
-                end_time = time.time()
-                execution_time = end_time - start_time
-                assert execution_time < 5.0, (
-                    f"Search failed after too long ({execution_time:.3f}s) for {scenario['name']}"
-                )
-                assert "Error" in str(e) or "Exception" in str(e), f"Unexpected error type: {e}"
 
 
 class TestFuzzyMatchDao:
