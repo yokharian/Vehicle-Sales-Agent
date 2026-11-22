@@ -29,6 +29,10 @@ os.environ.setdefault("COGNITO_REGION", "us-test-1")
 os.environ.setdefault("COGNITO_USER_POOL_ID", "us-test-1_TESTPOOL")
 os.environ.setdefault("COGNITO_APP_CLIENT_ID", "test-app-client")
 
+# agent.init_sentry reads the local .env at import time; tests must never
+# ship their errors to the real Sentry project.
+os.environ.setdefault("SENTRY_DSN", "")
+
 import pytest
 from langchain_core.embeddings import DeterministicFakeEmbedding
 from sqlalchemy import text as sql_text
