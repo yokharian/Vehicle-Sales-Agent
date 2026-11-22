@@ -8,6 +8,7 @@ from langchain_core.embeddings import DeterministicFakeEmbedding
 
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
+import agent as agent_module
 from db.document_loader import ensure_tables, reindex
 from tools.catalog_search import catalog_search_tool
 from tools.document_search import document_search_tool
@@ -74,13 +75,13 @@ def test_vehicle_price_feeds_financing_and_documents_backs_company_facts():
     assert evidence[0].metadata.source == "kavak.md"
 
 
-def test_agent_toolbelt_exposes_catalog_and_documents():
-    tools = {
-        catalog_search_tool.name: catalog_search_tool,
-        document_search_tool.name: document_search_tool,
-    }
+def test_agent_toolbelt_exposes_all_registered_tools():
+    registered = {tool.name for tool in agent_module.tools}
 
-    assert set(tools) == {"catalog_search", "document_search"}
-    for tool in tools.values():
+    assert registered == {"catalog_search", "document_search", "financing_calculator"}
+    for tool in agent_module.tools:
+        assert tool.name in agent_module.SYSTEM_PROMPT, (
+            f"registered tool {tool.name} is missing from the system prompt"
+        )
         assert callable(tool.func)
         assert tool.args_schema is not None
