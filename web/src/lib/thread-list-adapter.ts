@@ -55,11 +55,18 @@ const getThreadTitle = (values: Thread["values"]): string => {
   return title ? title.slice(0, TITLE_MAX_LENGTH) : UNTITLED;
 };
 
+const getStoredTitle = (thread: Thread): string | undefined => {
+  const title = thread.metadata?.["title"];
+  return typeof title === "string" && title.trim()
+    ? title.trim().slice(0, TITLE_MAX_LENGTH)
+    : undefined;
+};
+
 const toThreadMetadata = (thread: Thread): ThreadMetadata => ({
   status: "regular",
   remoteId: thread.thread_id,
   externalId: thread.thread_id,
-  title: getThreadTitle(thread.values),
+  title: getStoredTitle(thread) ?? getThreadTitle(thread.values),
   lastMessageAt: thread.updated_at ? new Date(thread.updated_at) : undefined,
 });
 
