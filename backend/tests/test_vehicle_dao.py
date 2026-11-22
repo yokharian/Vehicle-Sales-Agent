@@ -137,3 +137,26 @@ class TestVehicleDAO:
         results = search_vehicles(test_session, make="bmw", min_price=50000)
 
         assert len(results) == 0
+
+    def test_zero_valued_filters_are_applied(self, test_session, sample_vehicles):
+        assert search_vehicles(test_session, km_max=0) == []
+        assert search_vehicles(test_session, max_price=0) == []
+        assert len(search_vehicles(test_session, min_price=0)) == len(sample_vehicles)
+
+        test_session.add(
+            Vehicle(
+                stock_id=2001,
+                make="toyota",
+                model="corolla",
+                year=2022,
+                version="le",
+                km=0,
+                price=20000.00,
+                features={},
+            )
+        )
+        test_session.commit()
+
+        zero_km_results = search_vehicles(test_session, km_max=0)
+
+        assert [vehicle.stock_id for vehicle in zero_km_results] == [2001]

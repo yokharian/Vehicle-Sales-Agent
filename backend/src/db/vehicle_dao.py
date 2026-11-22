@@ -112,25 +112,25 @@ def search_vehicles(
 ) -> List[Vehicle]:
     statement = select(Vehicle)
 
-    if make:
+    if make is not None:
         statement = statement.where(Vehicle.make == make)
 
-    if model:
+    if model is not None:
         statement = statement.where(Vehicle.model == model)
 
-    if min_year:
+    if min_year is not None:
         statement = statement.where(Vehicle.year >= min_year)
 
-    if max_year:
+    if max_year is not None:
         statement = statement.where(Vehicle.year <= max_year)
 
-    if min_price:
+    if min_price is not None:
         statement = statement.where(Vehicle.price >= min_price)
 
-    if max_price:
+    if max_price is not None:
         statement = statement.where(Vehicle.price <= max_price)
 
-    if km_max:
+    if km_max is not None:
         statement = statement.where(Vehicle.km <= km_max)
 
     return list(db.exec(statement))
