@@ -1,11 +1,14 @@
+import asyncio
+import hmac
 import logging
 import sys
 from pathlib import Path
 from typing import Any, Dict
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import Response
+from fastapi.responses import PlainTextResponse, Response
 from pydantic import BaseModel
+from twilio.request_validator import RequestValidator
 from twilio.rest import Client
 from twilio.twiml.messaging_response import MessagingResponse
 
@@ -16,6 +19,14 @@ from config import TwilioSettings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+GENERIC_ERROR_RESPONSE = (
+    "Lo siento, ocurrió un error procesando tu mensaje. Por favor, inténtalo más tarde."
+)
+
+
+def mask_phone_number(number: str) -> str:
+    return f"****{number[-4:]}" if len(number) >= 4 else "****"
 
 
 class SendMessageRequest(BaseModel):
@@ -70,24 +81,31 @@ class WhatsAppVehicleAssistant:
             }
 
         except Exception as e:
-            logger.error(f"Failed to send WhatsApp message: {e}")
+            logger.error(f"Failed to send WhatsApp message: {type(e).__name__}")
             return {"success": False, "error": str(e)}
 
     def handle_whatsapp_message(self, from_number: str, message_body: str) -> str:
         try:
-            logger.info(f"Received WhatsApp message from {from_number}: {message_body}")
+            logger.info(
+                "Received WhatsApp message (%d chars) from %s",
+                len(message_body),
+                mask_phone_number(from_number),
+            )
             response = self._handle_with_ai_agent(message_body)
 
             if len(response) > 1600:
                 response = response[:1600] + "...\n\n[Respuesta truncada]"
 
-            logger.info(f"Sending WhatsApp response to {from_number}: {response[:100]}...")
+            logger.info(
+                "Sending WhatsApp response (%d chars) to %s",
+                len(response),
+                mask_phone_number(from_number),
+            )
             return response
 
         except Exception as e:
-            error_msg = f"Error procesando mensaje: {str(e)}"
-            logger.error(error_msg)
-            return error_msg
+            logger.error(f"Error processing WhatsApp message: {type(e).__name__}")
+            return GENERIC_ERROR_RESPONSE
 
     @staticmethod
     def _handle_with_ai_agent(message: str) -> str:
@@ -95,14 +113,26 @@ class WhatsAppVehicleAssistant:
             result = chat(message)
             if result["success"]:
                 return str(result["response"])
-            else:
-                return f"Lo siento, ocurrió un error: {result.get('error', 'Error desconocido')}"
+            logger.error("Agent failed internally: %s", result.get("error"))
+            return GENERIC_ERROR_RESPONSE
 
         except Exception as e:
-            return f"Lo siento, ocurrió un error: {str(e)}"
+            logger.error(f"Agent invocation failed: {type(e).__name__}")
+            return GENERIC_ERROR_RESPONSE
 
 
 assistant: WhatsAppVehicleAssistant | None = None
+
+
+def _require_valid_twilio_signature(request: Request, params: dict) -> bool:
+    auth_token = TwilioSettings().auth_token
+    if not auth_token:
+        logger.warning("TWILIO_AUTH_TOKEN is unset; rejecting unauthenticated webhook call")
+        return False
+    validator = RequestValidator(auth_token)
+    return validator.validate(
+        str(request.url), params, request.headers.get("X-Twilio-Signature", "")
+    )
 
 
 def create_fastapi_app() -> FastAPI:
@@ -120,6 +150,9 @@ def create_fastapi_app() -> FastAPI:
             message_body = form_data.get("Body", "")
             from_number = form_data.get("From", "")
 
+            if not _require_valid_twilio_signature(request, dict(form_data)):
+                return PlainTextResponse("Forbidden", status_code=403)
+
             if not message_body or not from_number:
                 logger.warning("Received empty message or sender")
                 return Response("OK", status_code=200)
@@ -130,7 +163,9 @@ def create_fastapi_app() -> FastAPI:
             if not assistant:
                 assistant = WhatsAppVehicleAssistant()
 
-            response_text = assistant.handle_whatsapp_message(from_number, message_body)
+            response_text = await asyncio.to_thread(
+                assistant.handle_whatsapp_message, from_number, message_body
+            )
 
             twiml_response = MessagingResponse()
             twiml_response.message(response_text)
@@ -138,15 +173,15 @@ def create_fastapi_app() -> FastAPI:
             return Response(content=str(twiml_response), media_type="text/xml")
 
         except Exception as e:
-            logger.error(f"Error handling WhatsApp webhook: {e}")
+            logger.error(f"Error handling WhatsApp webhook: {type(e).__name__}")
             twiml_response = MessagingResponse()
-            twiml_response.message("Lo siento, ocurrió un error procesando tu mensaje.")
+            twiml_response.message(GENERIC_ERROR_RESPONSE)
             return Response(content=str(twiml_response), media_type="text/xml")
 
     @app.get("/whatsapp/webhook")
     async def whatsapp_webhook_verify(request: Request):
-        """Handle WhatsApp webhook verification."""
-        return request.query_params.get("hub.challenge", "")
+        """Handle webhook verification."""
+        return PlainTextResponse(request.query_params.get("hub.challenge", ""))
 
     @app.get("/health", response_model=HealthResponse)
     async def health_check():
@@ -154,19 +189,33 @@ def create_fastapi_app() -> FastAPI:
         return HealthResponse(status="healthy", service="whatsapp-vehicle-assistant")
 
     @app.post("/send-message")
-    async def send_message(request_data: SendMessageRequest):
+    async def send_message(request: Request, request_data: SendMessageRequest):
         """Send a WhatsApp message via API."""
+        api_key = TwilioSettings().send_message_api_key
+        if not api_key:
+            logger.warning("SEND_MESSAGE_API_KEY is unset; /send-message is disabled")
+            raise HTTPException(
+                status_code=503, detail="send-message endpoint is disabled"
+            )
+        if not hmac.compare_digest(api_key, request.headers.get("x-api-key", "")):
+            logger.warning("Rejected /send-message call with a missing or wrong API key")
+            raise HTTPException(status_code=403, detail="Invalid API key")
+
         try:
             global assistant
             if not assistant:
                 assistant = WhatsAppVehicleAssistant()
 
-            result = assistant.send_whatsapp_message(request_data.to_number, request_data.message)
+            result = await asyncio.to_thread(
+                assistant.send_whatsapp_message,
+                request_data.to_number,
+                request_data.message,
+            )
             return result
 
         except Exception as e:
-            logger.error(f"Error sending message: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            logger.error(f"Error sending message: {type(e).__name__}")
+            raise HTTPException(status_code=500, detail="Failed to send message")
 
     return app
 
@@ -189,6 +238,7 @@ def start_whatsapp_server(host: str = "0.0.0.0", port: int = 5000, debug: bool =
     print("- TWILIO_ACCOUNT_SID")
     print("- TWILIO_AUTH_TOKEN")
     print("- TWILIO_WHATSAPP_NUMBER")
+    print("- SEND_MESSAGE_API_KEY (enables POST /send-message)")
     print()
 
     uvicorn.run(app, host=host, port=port, log_level="debug" if debug else "info")

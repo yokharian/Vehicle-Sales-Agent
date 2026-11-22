@@ -179,6 +179,11 @@ class TwilioSettings(BaseSettings):
     account_sid: str | None = Field(default=None, validation_alias="TWILIO_ACCOUNT_SID")
     auth_token: str | None = Field(default=None, validation_alias="TWILIO_AUTH_TOKEN")
     whatsapp_number: str | None = Field(default=None, validation_alias="TWILIO_WHATSAPP_NUMBER")
+    send_message_api_key: str | None = Field(
+        default=None,
+        validation_alias="SEND_MESSAGE_API_KEY",
+        description="API key required by POST /send-message; unset disables the endpoint",
+    )
 
 
 class SentrySettings(BaseSettings):

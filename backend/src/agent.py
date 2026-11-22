@@ -83,7 +83,7 @@ def chat(message: str) -> dict[str, Any]:
         return {"response": content, "messages": messages, "success": True}
     except Exception as e:
         return {
-            "response": f"Sorry, I encountered an error: {e!s}",
+            "response": "Lo siento, ocurrió un error interno. Por favor, inténtalo de nuevo más tarde.",
             "messages": [],
             "success": False,
             "error": str(e),

@@ -115,15 +115,18 @@ print(chat('Busco un Toyota 2020')['response'])
 "
 ```
 
-The test suite covers the server routes and agent wiring with testcontainers
-(see the README Testing section); no Twilio credentials are needed.
+The test suite covers the webhook routes (Twilio signature validation,
+/send-message authorization, TwiML responses) and the agent wiring (see
+the README Testing section); no Twilio credentials are needed.
 
 ## Security Notes
 
 - Keep Twilio credentials out of version control (`.env` is git-ignored)
 - Use HTTPS in production (terminate TLS at a reverse proxy)
-- Validate incoming webhook requests (e.g., Twilio request signature
-  validation) before trusting webhook payloads
+- Validate incoming webhook requests: the server enforces Twilio's
+  `X-Twilio-Signature` and rejects unsigned or badly signed calls with `403`;
+  behind a TLS-terminating proxy make sure the request URL the server sees
+  matches the URL Twilio signed
 - Apply rate limiting for production deployments
 
 ## Production Deployment
