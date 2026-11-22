@@ -77,6 +77,18 @@ class TestCSVIngestion:
         assert result["ancho"] == 1.8
         assert result["altura"] == 1.5
 
+    def test_process_vehicle_row_rejects_negative_km(self, sample_csv_data):
+        df = pd.DataFrame({**sample_csv_data, "km": [25000, -1000, 18000]})
+
+        with pytest.raises(ValueError, match="km must not be negative"):
+            process_vehicle_row(df.iloc[1], row_number=3)
+
+    def test_process_vehicle_row_rejects_nonpositive_price(self, sample_csv_data):
+        df = pd.DataFrame({**sample_csv_data, "price": [18500.00, -50.0, 19500.00]})
+
+        with pytest.raises(ValueError, match="price must be positive"):
+            process_vehicle_row(df.iloc[1], row_number=3)
+
     def test_process_vehicle_row_with_missing_data(self):
         row_data = {
             "stock_id": 1004,

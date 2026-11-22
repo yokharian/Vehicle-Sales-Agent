@@ -73,6 +73,11 @@ def process_vehicle_row(row: pd.Series, row_number: int) -> dict[str, Any]:
     year = _to_int(row.get("year"), "year", row_number)
     km = _to_int(row.get("km"), "km", row_number)
     price = _to_float(row.get("price"), "price", row_number)
+
+    if km < 0:
+        raise ValueError(f"row {row_number}: km must not be negative, got {km}")
+    if price <= 0:
+        raise ValueError(f"row {row_number}: price must be positive, got {price!r}")
     make = _clean_text(row.get("make"), "make", row_number, required=True)
     model = _clean_text(row.get("model"), "model", row_number, required=True)
     version = _clean_text(row.get("version"), "version", row_number, required=False)
