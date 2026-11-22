@@ -247,6 +247,16 @@ class TestBM25Retrieval:
         assert hits
         assert hits[0].metadata["source"] == "financing.md"
 
+    @pytest.mark.usefixtures("document_index")
+    def test_unaccented_query_matches_accented_corpus(self):
+        chunks = load_chunks()
+        retriever = build_bm25_retriever(chunks, candidates=3)
+
+        hits = retriever.invoke("que cubre la garantia")
+
+        assert hits
+        assert hits[0].metadata["source"] == "warranty.md"
+
     def test_keyword_retrieval_for_requirements(self):
         chunks = load_chunks()
         retriever = build_bm25_retriever(chunks, candidates=3)

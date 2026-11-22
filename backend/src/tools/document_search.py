@@ -11,6 +11,7 @@ from langchain_core.retrievers import BaseRetriever
 from langchain_core.tools import tool
 from langchain_openai import OpenAIEmbeddings
 from pydantic import BaseModel, ConfigDict, Field
+from unidecode import unidecode
 
 from config import DocumentSearchSettings
 from db.document_loader import dense_search, load_chunks
@@ -62,7 +63,7 @@ def resolve_embeddings():
 
 
 def _tokenize(text: str) -> list[str]:
-    return re.findall(r"\w+", text.lower())
+    return re.findall(r"\w+", unidecode(text).lower())
 
 
 def build_bm25_retriever(chunks: list[Document], candidates: int) -> BM25Retriever:
