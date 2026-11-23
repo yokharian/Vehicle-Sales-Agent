@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import sys
 from pathlib import Path
 
@@ -10,6 +11,8 @@ sys.path.append(str(Path(__file__).parent))
 
 from config import CognitoSettings
 
+
+logger = logging.getLogger(__name__)
 
 auth = Auth()
 
@@ -57,6 +60,12 @@ async def get_current_user(authorization: str) -> Auth.types.MinimalUserDict:
         payload = await asyncio.to_thread(
             _decode_token, authorization.removeprefix("Bearer ").strip()
         )
+    except jwt.PyJWKClientConnectionError as e:
+        logger.error("Cognito JWKS unreachable at %s: %s", cognito.jwks_uri, e)
+        raise HTTPException(
+            503,
+            "Cognito JWKS is unreachable; verify COGNITO_REGION and COGNITO_USER_POOL_ID",
+        ) from None
     except (jwt.PyJWTError, jwt.PyJWKClientError) as e:
         raise HTTPException(401, f"Invalid token: {e}") from None
 

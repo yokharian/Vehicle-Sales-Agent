@@ -68,7 +68,17 @@ exist.
   a guest app client. The registered client backs sign-in and sign-up, the
   guest client backs the "Continue as guest" flow. The backend validates
   access tokens against the pool JWKS once `COGNITO_REGION` and
-  `COGNITO_USER_POOL_ID` are set, and runs open while they are unset.
+  `COGNITO_USER_POOL_ID` are set, and runs open while they are unset; list
+  both app clients in `COGNITO_APP_CLIENT_IDS` so guest tokens pass the
+  `client_id` check.
+
+  The backend's pool and client ids must be the ones the deployed web build
+  ships in `amplify_outputs.json`, and the pool must still exist. A deleted
+  pool leaves the JWKS endpoint returning 404, so every token fails
+  validation and the API answers 401 on every authenticated route while
+  `/ok` stays green. Replacing a pool means updating the Dokploy compose env
+  (`COGNITO_USER_POOL_ID`, `COGNITO_APP_CLIENT_IDS`) and the Amplify bundle
+  together, then redeploying both.
 - **Amplify app** for hosting the static export, created with no connected
   repository, no auto branch creation and `enableAutoBuild: false` on its
   branch.

@@ -108,6 +108,33 @@ class TestRejectedTokens:
         assert exc.value.status_code == 401
 
 
+class TestJwksFailures:
+    def test_unreachable_jwks_is_a_server_failure_not_a_bad_token(self, monkeypatch):
+        def unreachable(*_):
+            raise jwt.PyJWKClientConnectionError(
+                'Fail to fetch data from the url, err: "HTTP Error 404: Not Found"'
+            )
+
+        monkeypatch.setattr(auth._jwks_client, "get_signing_key_from_jwt", unreachable)
+
+        with pytest.raises(auth.Auth.exceptions.HTTPException) as exc:
+            authenticate(f"Bearer {make_token()}")
+
+        assert exc.value.status_code == 503
+        assert "COGNITO_USER_POOL_ID" in exc.value.detail
+
+    def test_unknown_signing_key_stays_a_bad_token(self, monkeypatch):
+        def unknown_key(*_):
+            raise jwt.PyJWKClientError('Unable to find a signing key that matches: "nope"')
+
+        monkeypatch.setattr(auth._jwks_client, "get_signing_key_from_jwt", unknown_key)
+
+        with pytest.raises(auth.Auth.exceptions.HTTPException) as exc:
+            authenticate(f"Bearer {make_token()}")
+
+        assert exc.value.status_code == 401
+
+
 class TestDisabledAuth:
     def test_without_user_pool_requests_pass_anonymously(self, monkeypatch):
         monkeypatch.setattr(auth.cognito, "user_pool_id", None)

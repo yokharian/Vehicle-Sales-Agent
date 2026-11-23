@@ -38,7 +38,7 @@ services:
       # Optional Cognito JWT auth (unset = server runs open)
       - COGNITO_REGION=${COGNITO_REGION}
       - COGNITO_USER_POOL_ID=${COGNITO_USER_POOL_ID}
-      - COGNITO_APP_CLIENT_ID=${COGNITO_APP_CLIENT_ID}
+      - COGNITO_APP_CLIENT_IDS=${COGNITO_APP_CLIENT_IDS:-}
     volumes:
       - ./data:/deps/vehicle-sales-agent/data
     depends_on:
