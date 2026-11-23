@@ -111,7 +111,7 @@ class TestRejectedTokens:
 class TestJwksFailures:
     def test_unreachable_jwks_is_a_server_failure_not_a_bad_token(self, monkeypatch):
         def unreachable(*_):
-            raise jwt.PyJWKClientConnectionError(
+            raise jwt.PyJWKClientConnectionError(  # noqa: TRY003 - simulated SDK error
                 'Fail to fetch data from the url, err: "HTTP Error 404: Not Found"'
             )
 
@@ -125,7 +125,9 @@ class TestJwksFailures:
 
     def test_unknown_signing_key_stays_a_bad_token(self, monkeypatch):
         def unknown_key(*_):
-            raise jwt.PyJWKClientError('Unable to find a signing key that matches: "nope"')
+            raise jwt.PyJWKClientError(  # noqa: TRY003 - simulated SDK error
+                'Unable to find a signing key that matches: "nope"'
+            )
 
         monkeypatch.setattr(auth._jwks_client, "get_signing_key_from_jwt", unknown_key)
 

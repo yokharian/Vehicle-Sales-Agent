@@ -60,8 +60,8 @@ async def get_current_user(authorization: str) -> Auth.types.MinimalUserDict:
         payload = await asyncio.to_thread(
             _decode_token, authorization.removeprefix("Bearer ").strip()
         )
-    except jwt.PyJWKClientConnectionError as e:
-        logger.error("Cognito JWKS unreachable at %s: %s", cognito.jwks_uri, e)
+    except jwt.PyJWKClientConnectionError:
+        logger.exception("Cognito JWKS unreachable at %s", cognito.jwks_uri)
         raise HTTPException(
             503,
             "Cognito JWKS is unreachable; verify COGNITO_REGION and COGNITO_USER_POOL_ID",
